@@ -24,6 +24,7 @@
 static const char *log_tag = "wifi";
 static bool wifi_connected = false;
 static uint32_t port = 9999;
+static uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1D};
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
@@ -82,6 +83,7 @@ void wifi_connect(void)
     };
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_STA, &mac_address[0]));
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
