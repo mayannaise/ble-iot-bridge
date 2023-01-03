@@ -106,5 +106,4 @@ In order to emulate a SmartBulb and allow it to be discovered by Alexa, the foll
 
 * `mic_mac` (MAC address): C0:C9:E3:AD:7C:1C
   * OUI (Organisationally Unique Identifier): `C0:C9:E3` (Tp-link Technologies Co.,ltd.) [lookup tool](https://dnschecker.org/mac-lookup.php?query=c0c9e3ad7c1c)
-* `alias`: `"Back Light"`
-
+* `alias`
