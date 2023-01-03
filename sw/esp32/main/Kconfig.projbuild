@@ -12,10 +12,4 @@ menu "Project Configuration"
         help
             WiFi password (WPA or WPA2) of the network to connect to.
 
-    config SMARTBULB_IP_ADDRESS
-        string "SmartBulb IP Address"
-        default "192.168.1.100"
-        help
-            IP address of the TP-Link Kasa Smart Bulb to connect to.
-
 endmenu

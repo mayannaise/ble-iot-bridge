@@ -21,11 +21,8 @@ extern void wifi_connect(void);
 extern bool wifi_network_ready(void);
 
 /**
- * @brief Encrypt and send JSON string
- * @param payload Encrypted data to send
- * @param length Length of payload
- * @return true if TCP transfer was successful, false otherwise
+ * @brief Start TCP server on port 9999
  */
-extern bool wifi_tcp_transfer(const char *payload, const int length);
+extern void wifi_start_server(void);
 
 #endif

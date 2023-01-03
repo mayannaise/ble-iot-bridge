@@ -43,18 +43,3 @@ void tplink_kasa_encrypt(const char * payload, char * encypted_payload)
         key = encypted_payload[i + sizeof(header)] = payload[i] ^ key;
     }
 }
-
-bool tplink_kasa_encrypt_and_send(const char * json_string)
-{
-    const int encrypted_length = strlen(json_string) + sizeof(union payload_header);
-    char * encrypted_payload = malloc(encrypted_length);
-
-    ESP_LOGD(log_tag, "Encrypting %d bytes", encrypted_length);
-    tplink_kasa_encrypt(json_string, encrypted_payload);
-
-    const bool result = wifi_tcp_transfer(encrypted_payload, encrypted_length);
-
-    free(encrypted_payload);
-
-    return result;
-}

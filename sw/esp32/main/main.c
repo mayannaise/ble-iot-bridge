@@ -44,12 +44,14 @@ void app_main(void)
     wifi_connect();
 
     /* wait till network is ready */
-    while ( !wifi_network_ready() ) {
+    while ( !wifi_network_ready() )
+    {
         vTaskDelay(500 / portTICK_RATE_MS);
     }
 
     /* main loop */
-    ESP_LOGI(log_tag, "Entering main loop");
+    ESP_LOGI(log_tag, "Starting server");
+    wifi_start_server();
     while (true)
     {
         vTaskDelay(500 / portTICK_RATE_MS);
