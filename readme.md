@@ -21,7 +21,83 @@ Discovery of a TP-Link Kasa SmartBulb is performed as shown below:
 **Response:**
 
 ```json
-{"system":{"get_sysinfo":{"sw_ver":"1.0.13 Build 211217 Rel.170501","hw_ver":"2.0","model":"KL130B(UN)","deviceId":"80121C1874CF2DEA94DF3127F8DDF7D71DD7112E","oemId":"E45F76AD3AF13E60B58D6F68739CD7E4","hwId":"1E97141B9F0E939BD8F9679F0B6167C8","rssi":-71,"latitude_i":0,"longitude_i":0,"alias":"Front Light","status":"new","description":"Smart Wi-Fi LED Bulb with Color Changing","mic_type":"IOT.SMARTBULB","mic_mac":"C0C9E3AD7C1C","dev_state":"normal","is_factory":false,"disco_ver":"1.0","ctrl_protocols":{"name":"Linkie","version":"1.0"},"active_mode":"none","is_dimmable":1,"is_color":1,"is_variable_color_temp":1,"light_state":{"on_off":0,"dft_on_state":{"mode":"normal","hue":0,"saturation":0,"color_temp":2700,"brightness":75}},"preferred_state":[{"index":0,"hue":0,"saturation":0,"color_temp":2700,"brightness":50},{"index":1,"hue":0,"saturation":100,"color_temp":0,"brightness":100},{"index":2,"hue":120,"saturation":100,"color_temp":0,"brightness":100},{"index":3,"hue":240,"saturation":100,"color_temp":0,"brightness":100}],"err_code":0}}}
+{
+  "system":
+  {
+    "get_sysinfo":
+    {
+      "sw_ver":"1.0.13 Build 211217 Rel.170501",
+      "hw_ver":"2.0",
+      "model":"KL130B(UN)",
+      "deviceId":"80121C1874CF2DEA94DF3127F8DDF7D71DD7112E",
+      "oemId":"E45F76AD3AF13E60B58D6F68739CD7E4",
+      "hwId":"1E97141B9F0E939BD8F9679F0B6167C8",
+      "rssi":-71,
+      "latitude_i":0,
+      "longitude_i":0,
+      "alias":"Front Light",
+      "status":"new",
+      "description":"Smart Wi-Fi LED Bulb with Color Changing",
+      "mic_type":"IOT.SMARTBULB",
+      "mic_mac":"C0C9E3AD7C1C",
+      "dev_state":"normal",
+      "is_factory":false,
+      "disco_ver":"1.0",
+      "ctrl_protocols": 
+      {
+        "name":"Linkie",
+        "version":"1.0"
+      },
+      "active_mode":"none",
+      "is_dimmable":1,
+      "is_color":1,
+      "is_variable_color_temp":1,
+      "light_state":
+      {
+        "on_off":0,
+        "dft_on_state":
+        {
+          "mode":"normal",
+          "hue":0,
+          "saturation":0,
+          "color_temp":2700,
+          "brightness":75
+        }
+      },
+      "preferred_state":[
+        {
+          "index":0,
+          "hue":0,
+          "saturation":0,
+          "color_temp":2700,
+          "brightness":50
+        },
+        {
+          "index":1,
+          "hue":0,
+          "saturation":100,
+          "color_temp":0,
+          "brightness":100
+        },
+        {
+          "index":2,
+          "hue":120,
+          "saturation":100,
+          "color_temp":0,
+          "brightness":100
+        },
+        {
+          "index":3,
+          "hue":240,
+          "saturation":100,
+          "color_temp":0,
+          "brightness":100
+        }
+      ],
+      "err_code":0
+    }
+  }
+}
 ```
 
 ## SmartBulb Emulator
