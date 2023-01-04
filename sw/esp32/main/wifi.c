@@ -19,12 +19,13 @@
 
 /* local includes */
 #include "wifi.h"
+#include "tplink_kasa.h"
 
 
 static const char *log_tag = "wifi";
 static bool wifi_connected = false;
-static uint32_t port = 9999;
-static uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1D};
+static const uint32_t port = 9999;
+static const uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1D};
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
@@ -87,33 +88,44 @@ void wifi_connect(void)
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
-static void do_retransmit(const int sock)
+static void process_buffer(const int sock)
 {
-    int len;
+    int rx_len;
     char rx_buffer[128];
+    const char * tx_buffer;
 
     do {
-        len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-        if (len < 0) {
+        rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
+        if (rx_len < 0) {
             ESP_LOGE(log_tag, "Error occurred during receiving: errno %d", errno);
-        } else if (len == 0) {
+        } else if (rx_len == 0) {
             ESP_LOGW(log_tag, "Connection closed");
         } else {
-            rx_buffer[len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(log_tag, "Received %d bytes: %s", len, rx_buffer);
+            rx_buffer[rx_len] = 0; // Null-terminate whatever is received and treat it like a string
+            ESP_LOGI(log_tag, "Received %d bytes: %s", rx_len, rx_buffer);
 
-            // send() can return less bytes than supplied length.
-            // Walk-around for robust implementation.
-            int to_write = len;
-            while (to_write > 0) {
-                int written = send(sock, rx_buffer + (len - to_write), to_write, 0);
+            if ( strcmp(rx_buffer, "HELP\r\n\0") == 0 )
+            {
+                ESP_LOGI(log_tag, "Client asked for help but aint getting it");
+                tx_buffer = tplink_kasa_on_off;
+            }
+            else
+            {
+                tx_buffer = tplink_kasa_brightness;
+            }
+
+            const int tx_len = strlen(tx_buffer);
+            int to_write = tx_len;
+            while (to_write > 0)
+            {
+                int written = send(sock, tx_buffer + (tx_len - to_write), to_write, 0);
                 if (written < 0) {
                     ESP_LOGE(log_tag, "Error occurred during sending: errno %d", errno);
                 }
                 to_write -= written;
             }
         }
-    } while (len > 0);
+    } while (rx_len > 0);
 }
 
 static void tcp_server_task(void *pvParameters)
@@ -183,7 +195,7 @@ static void tcp_server_task(void *pvParameters)
         }
         ESP_LOGI(log_tag, "Socket accepted ip address: %s", addr_str);
 
-        do_retransmit(sock);
+        process_buffer(sock);
 
         shutdown(sock, 0);
         close(sock);
