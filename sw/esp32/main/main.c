@@ -16,6 +16,7 @@
 #include "driver/rtc_io.h"
 
 /* local includes */
+#include "bluetooth.h"
 #include "tplink_kasa.h"
 #include "colours.h"
 #include "wifi.h"
@@ -48,6 +49,9 @@ void app_main(void)
     {
         vTaskDelay(500 / portTICK_RATE_MS);
     }
+
+    /* start bluetooth and connect to BLE smartbulb */
+    bluetooth_start();
 
     /* main loop */
     ESP_LOGI(log_tag, "Starting server");

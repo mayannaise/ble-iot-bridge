@@ -12,4 +12,10 @@ menu "Project Configuration"
         help
             WiFi password (WPA or WPA2) of the network to connect to.
 
+    config SMARTBULB_MAC_ADDRESS
+        string "Smartbulb MAC address"
+        default "00:00:00:00:00:00"
+        help
+            MAC address of the Bluetooth Low Energy (BLE) smartbulb to connect to.
+
 endmenu
