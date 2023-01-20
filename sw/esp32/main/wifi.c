@@ -21,11 +21,14 @@
 #include "wifi.h"
 #include "tplink_kasa.h"
 
-
+/* constants */
 static const char *log_tag = "wifi";
-static bool wifi_connected = false;
 static const uint32_t port = 9999;
 static const uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1D};
+
+/* runtime variables */
+static bool wifi_connected = false;
+
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
