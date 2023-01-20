@@ -56,8 +56,11 @@ void app_main(void)
     /* main loop */
     ESP_LOGI(log_tag, "Starting server");
     wifi_start_server();
+    
     while (true)
     {
-        vTaskDelay(500 / portTICK_RATE_MS);
+        struct rgb_colour rgb = { rand() % 256, rand() % 256, rand() % 256 };
+        bluetooth_set_bulb_colour(rgb);
+        vTaskDelay(1000 / portTICK_RATE_MS);
     }
 }

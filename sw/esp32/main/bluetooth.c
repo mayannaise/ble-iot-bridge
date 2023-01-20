@@ -8,6 +8,7 @@
 
 /* local includes */
 #include "bluetooth.h"
+#include "colours.h"
 
 
 const char * log_tag = "bluetoothle";
@@ -139,55 +140,50 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         } else {
             ESP_LOGI(log_tag, "unknown service source");
         }
-        ESP_LOGI(log_tag, "ESP_GATTC_SEARCH_CMPL_EVT");
-        if (get_server){
-            uint16_t count = 0;
-            esp_gatt_status_t status = esp_ble_gattc_get_attr_count( gattc_if,
-                                                                     p_data->search_cmpl.conn_id,
-                                                                     ESP_GATT_DB_CHARACTERISTIC,
-                                                                     gl_profile_tab[PROFILE_A_APP_ID].service_start_handle,
-                                                                     gl_profile_tab[PROFILE_A_APP_ID].service_end_handle,
-                                                                     INVALID_HANDLE,
-                                                                     &count);
-            if (status != ESP_GATT_OK){
-                ESP_LOGE(log_tag, "esp_ble_gattc_get_attr_count error");
-            }
 
-            if (count > 0){
-                char_elem_result = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
-                if (!char_elem_result) {
-                    ESP_LOGE(log_tag, "gattc no mem");
-                } else {
-                    status = esp_ble_gattc_get_char_by_uuid( gattc_if,
-                                                             p_data->search_cmpl.conn_id,
-                                                             gl_profile_tab[PROFILE_A_APP_ID].service_start_handle,
-                                                             gl_profile_tab[PROFILE_A_APP_ID].service_end_handle,
-                                                             smartbulb_ble_char_uuid,
-                                                             char_elem_result,
-                                                             &count);
-                    if (status != ESP_GATT_OK){
-                        ESP_LOGE(log_tag, "Error getting characteristic from service");
-                    }
+        uint16_t count = 0;
+        esp_gatt_status_t status = esp_ble_gattc_get_attr_count(
+            gl_profile_tab[PROFILE_A_APP_ID].gattc_if,
+            gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+            ESP_GATT_DB_CHARACTERISTIC,
+            gl_profile_tab[PROFILE_A_APP_ID].service_start_handle,
+            gl_profile_tab[PROFILE_A_APP_ID].service_end_handle,
+            INVALID_HANDLE,
+            &count);
 
-                    /* write value to characteristic */
-                    ESP_LOGI(log_tag, "Setting bulb to red");
-                    uint8_t value [4] = { 0xD0, 0xFF, 0x00, 0x00 };
-                    esp_ble_gattc_write_char(
-                      gattc_if,
-                      p_data->search_cmpl.conn_id,
-                      char_elem_result->char_handle,
-                      sizeof(value),
-                      value,
-                      ESP_GATT_WRITE_TYPE_NO_RSP,
-                      ESP_GATT_AUTH_REQ_NONE);
-
-                }
-                /* free char_elem_result */
-                free(char_elem_result);
-            } else {
-                ESP_LOGE(log_tag, "Characteristic not found in service");
-            }
+        if (status != ESP_GATT_OK) {
+            ESP_LOGE(log_tag, "esp_ble_gattc_get_attr_count error");
+            return;
         }
+
+        if (count > 0) {
+            char_elem_result = (esp_gattc_char_elem_t *)malloc(sizeof(esp_gattc_char_elem_t) * count);
+            if (!char_elem_result) {
+                ESP_LOGE(log_tag, "gattc no mem");
+            } else {
+                status = esp_ble_gattc_get_char_by_uuid(
+                    gl_profile_tab[PROFILE_A_APP_ID].gattc_if,
+                    gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+                    gl_profile_tab[PROFILE_A_APP_ID].service_start_handle,
+                    gl_profile_tab[PROFILE_A_APP_ID].service_end_handle,
+                    smartbulb_ble_char_uuid,
+                    char_elem_result,
+                    &count);
+                if (status != ESP_GATT_OK) {
+                    ESP_LOGE(log_tag, "Error getting characteristic from service");
+                }
+            }
+
+            gl_profile_tab[PROFILE_A_APP_ID].char_handle = char_elem_result->char_handle;
+            ESP_LOGI(log_tag, "Found characteristic in service");
+
+            /* free char_elem_result */
+            free(char_elem_result);
+        } else {
+            ESP_LOGE(log_tag, "Characteristic not found in service");
+        }
+
+        ESP_LOGI(log_tag, "ESP_GATTC_SEARCH_CMPL_EVT");
         break;
     case ESP_GATTC_WRITE_CHAR_EVT:
         if (p_data->write.status != ESP_GATT_OK){
@@ -307,6 +303,24 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp
             }
         }
     } while (0);
+}
+
+void bluetooth_set_bulb_colour(struct rgb_colour rgb)
+{
+    if ( gl_profile_tab[PROFILE_A_APP_ID].char_handle == 0 ) {
+        return;
+    }
+
+    /* write RGB value to characteristic */
+    uint8_t value [4] = { 0xD0, rgb.r, rgb.g, rgb.b };
+    esp_ble_gattc_write_char(
+        gl_profile_tab[PROFILE_A_APP_ID].gattc_if,
+        gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+        gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+        sizeof(value),
+        value,
+        ESP_GATT_WRITE_TYPE_NO_RSP,
+        ESP_GATT_AUTH_REQ_NONE);
 }
 
 void bluetooth_start(void)

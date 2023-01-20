@@ -21,6 +21,14 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 
+#include "colours.h"
+
+
+/**
+ * @brief Set the colour of the BLE smart bulb
+ * @param rgb New colour
+ */
+extern void bluetooth_set_bulb_colour(struct rgb_colour rgb);
 
 /**
  * @brief Configure bluetooth on the ESP
