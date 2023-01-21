@@ -10,11 +10,6 @@
 #include "tplink_kasa.h"
 #include "wifi.h"
 
-
-const char * tplink_kasa_on_off = "{\"smartlife.iot.smartbulb.lightingservice\": {\"transition_light_state\": {\"on_off\": %d}}}";
-const char * tplink_kasa_brightness = "{\"smartlife.iot.smartbulb.lightingservice\": {\"transition_light_state\": {\"brightness\": %d}}}";
-const char * tplink_kasa_hsv = "{\"smartlife.iot.smartbulb.lightingservice\": {\"transition_light_state\": {\"hue\": %d, \"saturation\": %d}}}";
-
 union payload_header
 {
   char bytes[4];

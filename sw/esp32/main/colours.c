@@ -38,3 +38,10 @@ struct hsv_colour colours_rgb_to_hsv(struct rgb_colour rgb)
 
     return hsv;
 }
+
+struct rgb_colour colours_hsv_to_rgb(struct hsv_colour hsv)
+{
+    struct rgb_colour rgb = {};
+
+    return rgb;
+}

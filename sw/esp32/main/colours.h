@@ -32,4 +32,11 @@ struct hsv_colour
  */
 extern struct hsv_colour colours_rgb_to_hsv(struct rgb_colour rgb);
 
+/**
+ * @brief Convert HSV to RGB
+ * @param hsv HSV value to convert
+ * @return RGB representation of the input HSV value
+ */
+extern struct rgb_colour colours_hsv_to_rgb(struct hsv_colour hsv);
+
 #endif

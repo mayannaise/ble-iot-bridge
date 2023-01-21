@@ -23,16 +23,6 @@
 
 
 /**
- * @brief Flags to remember the current state of the smart bulb
- */
-struct smart_bulb_state
-{
-    bool    on_off;            /*!< Current on/off state of the smartbulb */
-    uint8_t brightness;        /*!< Current brightness (in percent) of the smartbulb */
-    struct  rgb_colour colour; /*!< Current colour (in RGB) of the smartbulb */
-} current_state;
-
-/**
  * @brief Application main entry point
  */
 void app_main(void)
@@ -58,10 +48,6 @@ void app_main(void)
     /* main loop to bridge WiFi and BLE */
     while (true)
     {
-        current_state.colour.r = rand() % 256;
-        current_state.colour.g = rand() % 256;
-        current_state.colour.b = rand() % 256;
-        bluetooth_set_bulb_colour(current_state.colour);
         vTaskDelay(1000 / portTICK_RATE_MS);
     }
 }
