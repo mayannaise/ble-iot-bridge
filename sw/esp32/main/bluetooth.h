@@ -28,7 +28,12 @@
  * @brief Set the colour of the BLE smart bulb
  * @param rgb New colour
  */
-extern void bluetooth_set_bulb_colour(struct rgb_colour rgb);
+extern bool bluetooth_set_bulb_colour(const struct rgb_colour rgb);
+
+/**
+ * @brief Turn off BLE smart bulb
+ */
+extern bool bluetooth_turn_bulb_off();
 
 /**
  * @brief Configure bluetooth on the ESP

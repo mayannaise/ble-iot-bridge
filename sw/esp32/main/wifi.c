@@ -100,7 +100,8 @@ void wifi_connect(void)
 static void process_buffer(const int sock)
 {
     int rx_len;
-    char rx_buffer[128];
+    char rx_buffer[200];
+    char json_string[200];
     const char * tx_buffer;
 
     do {
@@ -110,8 +111,13 @@ static void process_buffer(const int sock)
         } else if (rx_len == 0) {
             ESP_LOGW(log_tag, "Connection closed");
         } else {
-            rx_buffer[rx_len] = 0; // Null-terminate whatever is received and treat it like a string
-            ESP_LOGI(log_tag, "Received %d bytes: %s", rx_len, rx_buffer);
+            /* Null-terminate whatever is received and treat it like a string */
+            rx_buffer[rx_len] = 0;
+
+            /* decrypt the received buffer to a JSON string */
+            tplink_kasa_decrypt(rx_buffer, json_string);
+            ESP_LOGI(log_tag, "Encrypted payload (%d bytes): %s", rx_len, rx_buffer);
+            ESP_LOGI(log_tag, "Decrypted payload (%d bytes): %s", strlen(json_string), json_string);
 
             /* decode JSON message */
             cJSON *json_message = cJSON_Parse(rx_buffer);
@@ -122,40 +128,56 @@ static void process_buffer(const int sock)
                 const cJSON * attr_hue = cJSON_GetObjectItemCaseSensitive(json_message, "hue");
                 const cJSON * attr_saturation = cJSON_GetObjectItemCaseSensitive(json_message, "saturation");
                 const cJSON * attr_brightness = cJSON_GetObjectItemCaseSensitive(json_message, "brightness");
+                const cJSON * attr_on_off = cJSON_GetObjectItemCaseSensitive(json_message, "on_off");
 
-                if (!cJSON_IsNumber(attr_hue)) {
-                    ESP_LOGE(log_tag, "hue attribute not found in JSON command");
-                } else {
+                bool need_to_set_colour = false;
+
+                if (cJSON_IsNumber(attr_hue)) {
+                    ESP_LOGI(log_tag, "hue %.0f degrees", attr_hue->valuedouble);
                     current_colour.h = attr_hue->valuedouble;
+                    need_to_set_colour = true;
                 }
-
-                if (!cJSON_IsNumber(attr_saturation)) {
-                    ESP_LOGE(log_tag, "saturation attribute not found in JSON command");
-                } else {
+                if (cJSON_IsNumber(attr_saturation)) {
+                    ESP_LOGI(log_tag, "saturation %.0f%%", attr_saturation->valuedouble);
                     current_colour.s = attr_saturation->valuedouble;
+                    need_to_set_colour = true;
                 }
-
-                if (!cJSON_IsNumber(attr_brightness)) {
-                    ESP_LOGE(log_tag, "brightness attribute not found in JSON command");
-                } else {
+                if (cJSON_IsNumber(attr_brightness)) {
+                    ESP_LOGI(log_tag, "brightness %.0f%%", attr_brightness->valuedouble);
                     current_colour.v = attr_brightness->valuedouble;
+                    need_to_set_colour = true;
                 }
-                
-                /* send command to bluetooth bulb to set the colour */
-                //bluetooth_set_bulb_colour(colours_hsv_to_rgb(current_colour));
 
-                /* return response okay message */
-                tx_buffer = "{";
-                const int tx_len = strlen(tx_buffer);
-                int to_write = tx_len;
-                while (to_write > 0)
-                {
-                    int written = send(sock, tx_buffer + (tx_len - to_write), to_write, 0);
-                    if (written < 0) {
-                        ESP_LOGE(log_tag, "Error occurred during sending: errno %d", errno);
+                /* send command to bluetooth bulb to turn on/off if required */
+                if (cJSON_IsNumber(attr_on_off)) {
+                    ESP_LOGI(log_tag, "on/off %.0f", attr_on_off->valuedouble);
+                    const bool turn_off = attr_on_off->valuedouble == 0;
+                    if ( turn_off ) {
+                        bluetooth_turn_bulb_off();
+                        need_to_set_colour = false;
+                    } else {
+                        /* this will turn the bulb back on */
+                        need_to_set_colour = true;
                     }
-                    to_write -= written;
                 }
+
+                /* send command to bluetooth bulb to set the colour */
+                if (need_to_set_colour) {
+                    bluetooth_set_bulb_colour(colours_hsv_to_rgb(current_colour));
+                }
+            }
+
+            /* return response okay message */
+            tx_buffer = "{}\0";
+            const int tx_len = strlen(tx_buffer);
+            int to_write = tx_len;
+            while (to_write > 0)
+            {
+                int written = send(sock, tx_buffer + (tx_len - to_write), to_write, 0);
+                if (written < 0) {
+                    ESP_LOGE(log_tag, "Error occurred during sending: errno %d", errno);
+                }
+                to_write -= written;
             }
         }
     } while (rx_len > 0);

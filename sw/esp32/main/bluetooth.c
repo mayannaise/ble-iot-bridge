@@ -305,10 +305,10 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp
     } while (0);
 }
 
-void bluetooth_set_bulb_colour(struct rgb_colour rgb)
+bool bluetooth_set_bulb_colour(const struct rgb_colour rgb)
 {
     if ( gl_profile_tab[PROFILE_A_APP_ID].char_handle == 0 ) {
-        return;
+        return false;
     }
 
     /* write RGB value to characteristic */
@@ -321,6 +321,28 @@ void bluetooth_set_bulb_colour(struct rgb_colour rgb)
         value,
         ESP_GATT_WRITE_TYPE_NO_RSP,
         ESP_GATT_AUTH_REQ_NONE);
+
+    return true;
+}
+
+bool bluetooth_turn_bulb_off()
+{
+    if ( gl_profile_tab[PROFILE_A_APP_ID].char_handle == 0 ) {
+        return false;
+    }
+
+    /* write off value to characteristic */
+    uint8_t value [4] = { 0xD0, 0, 0, 0 };
+    esp_ble_gattc_write_char(
+        gl_profile_tab[PROFILE_A_APP_ID].gattc_if,
+        gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+        gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+        sizeof(value),
+        value,
+        ESP_GATT_WRITE_TYPE_NO_RSP,
+        ESP_GATT_AUTH_REQ_NONE);
+
+    return true;
 }
 
 void bluetooth_start(void)
