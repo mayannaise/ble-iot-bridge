@@ -120,15 +120,18 @@ static void process_buffer(const int sock)
             ESP_LOGI(log_tag, "Decrypted payload (%d bytes): %s", strlen(json_string), json_string);
 
             /* decode JSON message */
-            cJSON *json_message = cJSON_Parse(rx_buffer);
+            cJSON *json_message = cJSON_Parse(json_string);
             if ( json_message == NULL ) {
                 ESP_LOGE(log_tag, "Error decoding JSON message");
             } else {
+                const cJSON * attr_light_service = cJSON_GetObjectItemCaseSensitive(json_message, "smartlife.iot.smartbulb.lightingservice");
+                const cJSON * attr_light_state = cJSON_GetObjectItemCaseSensitive(attr_light_service, "transition_light_state");
+
                 /* get colour setting from string */
-                const cJSON * attr_hue = cJSON_GetObjectItemCaseSensitive(json_message, "hue");
-                const cJSON * attr_saturation = cJSON_GetObjectItemCaseSensitive(json_message, "saturation");
-                const cJSON * attr_brightness = cJSON_GetObjectItemCaseSensitive(json_message, "brightness");
-                const cJSON * attr_on_off = cJSON_GetObjectItemCaseSensitive(json_message, "on_off");
+                const cJSON * attr_hue = cJSON_GetObjectItemCaseSensitive(attr_light_state, "hue");
+                const cJSON * attr_saturation = cJSON_GetObjectItemCaseSensitive(attr_light_state, "saturation");
+                const cJSON * attr_brightness = cJSON_GetObjectItemCaseSensitive(attr_light_state, "brightness");
+                const cJSON * attr_on_off = cJSON_GetObjectItemCaseSensitive(attr_light_state, "on_off");
 
                 bool need_to_set_colour = false;
 
@@ -165,6 +168,9 @@ static void process_buffer(const int sock)
                 if (need_to_set_colour) {
                     bluetooth_set_bulb_colour(colours_hsv_to_rgb(current_colour));
                 }
+
+                /* tidy up */
+                cJSON_Delete(json_message);
             }
 
             /* return response okay message */
