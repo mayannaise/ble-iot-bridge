@@ -17,8 +17,6 @@
 
 /* local includes */
 #include "bluetooth.h"
-#include "tplink_kasa.h"
-#include "colours.h"
 #include "wifi.h"
 
 
