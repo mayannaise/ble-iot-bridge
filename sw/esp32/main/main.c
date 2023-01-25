@@ -28,11 +28,12 @@ void app_main(void)
     /* application constants */
     const char *log_tag = "ble-iot-bridge";
 
-    /* connect to the configured WiFi network */
-    ESP_LOGI(log_tag, "Conecting to WiFi network");
-    wifi_connect();
+    /* in pairing mode, the ESP32 is configured as an access point */
+    /* otherwise connect the ESP32 to an access point */
+    bool bulb_needs_pairing = false;
+    wifi_setup(bulb_needs_pairing);
 
-    /* wait till network is ready and start TCP server */
+    /* wait till network is ready and then start the TCP server */
     while ( !wifi_network_ready() )
     {
         vTaskDelay(500 / portTICK_RATE_MS);
@@ -42,10 +43,4 @@ void app_main(void)
 
     /* start bluetooth and connect to BLE smartbulb */
     bluetooth_start();
-
-    /* main loop */
-    while (true)
-    {
-        vTaskDelay(1000 / portTICK_RATE_MS);
-    }
 }

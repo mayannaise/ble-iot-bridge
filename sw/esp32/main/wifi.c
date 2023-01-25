@@ -47,6 +47,10 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         wifi_connected = true;
         ESP_LOGI(log_tag, "ESP acquired IP address:" IPSTR, IP2STR(&event->ip_info.ip));
+    } else if (event_id == WIFI_EVENT_AP_STACONNECTED) {
+        wifi_connected = true;
+        wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
+        ESP_LOGI(log_tag, "station "MACSTR" join, AID=%d", MAC2STR(event->mac), event->aid);
     }
 }
 
@@ -66,7 +70,7 @@ bool wifi_network_ready(void)
     return wifi_connected;
 }
 
-void wifi_connect(void)
+void wifi_setup(bool access_point)
 {
     ESP_ERROR_CHECK(configure_nvs_flash());
     ESP_ERROR_CHECK(esp_netif_init());
@@ -78,22 +82,46 @@ void wifi_connect(void)
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL, NULL));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, NULL));
 
-    esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
-    assert(sta_netif);
+    if ( access_point )
+    {
+        esp_netif_t *netif = esp_netif_create_default_wifi_ap();
+        assert(netif);
 
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = CONFIG_WIFI_SSID,
-            .password = CONFIG_WIFI_PASSWORD,
-            .scan_method = WIFI_FAST_SCAN,
-            .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
-            .threshold.rssi = -127,
-            .threshold.authmode = WIFI_AUTH_OPEN,
-        },
-    };
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_STA, &mac_address[0]));
+        wifi_config_t wifi_config = {
+            .ap = {
+                .ssid = ACCESS_POINT_SSID,
+                .ssid_len = strlen(ACCESS_POINT_SSID),
+                .channel = 1,
+                .max_connection = 1,
+                .authmode = WIFI_AUTH_OPEN
+            },
+        };
+
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+        ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_AP, &mac_address[0]));
+    }
+    else
+    {
+        esp_netif_t *netif = esp_netif_create_default_wifi_sta();
+        assert(netif);
+
+        wifi_config_t wifi_config = {
+            .sta = {
+                .ssid = CONFIG_WIFI_SSID,
+                .password = CONFIG_WIFI_PASSWORD,
+                .scan_method = WIFI_FAST_SCAN,
+                .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
+                .threshold.rssi = -127,
+                .threshold.authmode = WIFI_AUTH_OPEN,
+            },
+        };
+
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+        ESP_ERROR_CHECK(esp_wifi_set_mac(WIFI_IF_STA, &mac_address[0]));
+    }
+    
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
