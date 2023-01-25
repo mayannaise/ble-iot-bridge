@@ -45,7 +45,7 @@ void app_main(void)
     /* start bluetooth and connect to BLE smartbulb */
     bluetooth_start();
 
-    /* main loop to bridge WiFi and BLE */
+    /* main loop */
     while (true)
     {
         vTaskDelay(1000 / portTICK_RATE_MS);
