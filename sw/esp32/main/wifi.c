@@ -26,7 +26,7 @@
 /* constants */
 static const char *log_tag = "wifi";
 static const uint32_t port = 9999;
-static const uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1D};
+static const uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1C};
 
 /* fag to indicate if the WiFi has connected yet */
 static bool wifi_connected = false;
@@ -127,24 +127,21 @@ void wifi_setup(bool access_point)
 
 static void process_buffer(const int sock)
 {
-    int rx_len;
-    char rx_buffer[200];
+    int buffer_len;
+    char raw_buffer[200];
     char json_string[200];
-    const char * tx_buffer;
 
     do {
-        rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-        if (rx_len < 0) {
+        buffer_len = recv(sock, raw_buffer, sizeof(raw_buffer) - 1, 0);
+        if (buffer_len < 0) {
             ESP_LOGE(log_tag, "Error occurred during receiving: errno %d", errno);
-        } else if (rx_len == 0) {
+        } else if (buffer_len == 0) {
             ESP_LOGW(log_tag, "Connection closed");
         } else {
-            /* Null-terminate whatever is received and treat it like a string */
-            rx_buffer[rx_len] = 0;
-
             /* decrypt the received buffer to a JSON string */
-            tplink_kasa_decrypt(rx_buffer, json_string);
-            ESP_LOGI(log_tag, "Encrypted payload (%d bytes): %s", rx_len, rx_buffer);
+            raw_buffer[buffer_len] = 0;
+            tplink_kasa_decrypt(raw_buffer, json_string);
+            ESP_LOGI(log_tag, "Encrypted payload (%d bytes): %s", buffer_len, raw_buffer);
             ESP_LOGI(log_tag, "Decrypted payload (%d bytes): %s", strlen(json_string), json_string);
 
             /* decode JSON message */
@@ -152,14 +149,21 @@ static void process_buffer(const int sock)
             if ( json_message == NULL ) {
                 ESP_LOGE(log_tag, "Error decoding JSON message");
             } else {
-                const cJSON * attr_light_service = cJSON_GetObjectItemCaseSensitive(json_message, "smartlife.iot.smartbulb.lightingservice");
-                const cJSON * attr_light_state = cJSON_GetObjectItemCaseSensitive(attr_light_service, "transition_light_state");
+                /* get system info request from string */
+                const cJSON * attr_system = cJSON_GetObjectItem(json_message, "system");
+                if ( cJSON_HasObjectItem(attr_system, "get_sysinfo") ) {
+                    ESP_LOGI(log_tag, "get sysinfo request");
+                    //buffer_len = tplink_kasa_encrypt(tplink_kasa_sysinfo, raw_buffer);
+                    buffer_len = tplink_kasa_encrypt("{\"system\":{\"get_sysinfo\":{\"err_code\":0}}}", raw_buffer);
+                }
 
                 /* get colour setting from string */
-                const cJSON * attr_hue = cJSON_GetObjectItemCaseSensitive(attr_light_state, "hue");
-                const cJSON * attr_saturation = cJSON_GetObjectItemCaseSensitive(attr_light_state, "saturation");
-                const cJSON * attr_brightness = cJSON_GetObjectItemCaseSensitive(attr_light_state, "brightness");
-                const cJSON * attr_on_off = cJSON_GetObjectItemCaseSensitive(attr_light_state, "on_off");
+                const cJSON * attr_light_service = cJSON_GetObjectItem(json_message, "smartlife.iot.smartbulb.lightingservice");
+                const cJSON * attr_light_state = cJSON_GetObjectItem(attr_light_service, "transition_light_state");
+                const cJSON * attr_hue = cJSON_GetObjectItem(attr_light_state, "hue");
+                const cJSON * attr_saturation = cJSON_GetObjectItem(attr_light_state, "saturation");
+                const cJSON * attr_brightness = cJSON_GetObjectItem(attr_light_state, "brightness");
+                const cJSON * attr_on_off = cJSON_GetObjectItem(attr_light_state, "on_off");
 
                 bool need_to_set_colour = false;
 
@@ -202,19 +206,18 @@ static void process_buffer(const int sock)
             }
 
             /* return response okay message */
-            tx_buffer = "{}\0";
-            const int tx_len = strlen(tx_buffer);
-            int to_write = tx_len;
+            ESP_LOGI(log_tag, "Sending response (%d bytes)", buffer_len);
+            int to_write = buffer_len;
             while (to_write > 0)
             {
-                int written = send(sock, tx_buffer + (tx_len - to_write), to_write, 0);
+                int written = send(sock, raw_buffer + (buffer_len - to_write), to_write, 0);
                 if (written < 0) {
                     ESP_LOGE(log_tag, "Error occurred during sending: errno %d", errno);
                 }
                 to_write -= written;
             }
         }
-    } while (rx_len > 0);
+    } while (buffer_len > 0);
 }
 
 static void tcp_server_task(void *pvParameters)

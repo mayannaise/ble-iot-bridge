@@ -25,7 +25,8 @@ void tplink_kasa_decrypt(const char * encrypted_payload, char * decrypted_payloa
  * @brief Encrypt using XOR Autokey Cipher with starting key of 171
  * @param payload Input payload to encrypt
  * @param encrypted_payload Output encrypted payload
+ * @return length of encrypted data
  */
-void tplink_kasa_encrypt(const char * payload, char * encypted_payload);
+int tplink_kasa_encrypt(const char * payload, char * encypted_payload);
 
 #endif

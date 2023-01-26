@@ -31,6 +31,13 @@ void tplink_kasa_decrypt(const char * encrypted_payload, char * decrypted_payloa
     header.bytes[1] = encrypted_payload[2];
     header.bytes[0] = encrypted_payload[3];
 
+    /* if payload length comes out very large then probably not a valid message */
+    if (header.payload_length > 200)
+    {
+        decrypted_payload[0] = 0;
+        return;
+    }
+
     /* XOR each byte with the previous encypted byte or 171 for the first byte */
     for (int i = 0; i < header.payload_length; i++)
     {
@@ -42,7 +49,7 @@ void tplink_kasa_decrypt(const char * encrypted_payload, char * decrypted_payloa
     decrypted_payload[header.payload_length] = '\0';
 }
 
-void tplink_kasa_encrypt(const char * payload, char * encrypted_payload)
+int tplink_kasa_encrypt(const char * payload, char * encrypted_payload)
 {
     /* autokey cypher key value */
     char key = cipher_key;
@@ -61,4 +68,6 @@ void tplink_kasa_encrypt(const char * payload, char * encrypted_payload)
     {
         key = encrypted_payload[i + sizeof(header)] = payload[i] ^ key;
     }
+
+    return header.payload_length + sizeof(header);
 }
