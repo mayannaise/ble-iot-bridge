@@ -19,7 +19,7 @@
 
 /* local includes */
 #include "bluetooth.h"
-#include "cJSON.h"
+#include "cjson/cJSON.h"
 #include "wifi.h"
 #include "tplink_kasa.h"
 
