@@ -38,7 +38,7 @@ void app_main(void)
     {
         vTaskDelay(500 / portTICK_RATE_MS);
     }
-    ESP_LOGI(log_tag, "Starting WiFi smartbulb emulator (TCP server port 9999)");
+    ESP_LOGI(log_tag, "Starting WiFi smartbulb emulator");
     wifi_start_server();
 
     /* start bluetooth and connect to BLE smartbulb */
