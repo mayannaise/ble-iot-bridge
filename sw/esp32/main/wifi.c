@@ -20,99 +20,16 @@
 /* local includes */
 #include "bluetooth.h"
 #include "cjson/cJSON.h"
-#include "wifi.h"
 #include "tplink_kasa.h"
+#include "wifi.h"
 
 /* constants */
 static const char *log_tag = "wifi";
 static const uint32_t port = 9999;
-static const uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1C};
+static const uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1D};
 
-static const char * tplink_kasa_sysinfo = "{ \
-  \"system\": \
-  { \
-    \"get_sysinfo\": \
-    { \
-      \"sw_ver\":\"1.0.13 Build 211217 Rel.170501\", \
-      \"hw_ver\":\"2.0\", \
-      \"model\":\"KL130B(UN)\", \
-      \"deviceId\":\"80121C1874CF2DEA94DF3127F8DDF7D71DD7112E\", \
-      \"oemId\":\"E45F76AD3AF13E60B58D6F68739CD7E4\", \
-      \"hwId\":\"1E97141B9F0E939BD8F9679F0B6167C8\", \
-      \"rssi\":-71, \
-      \"latitude_i\":0, \
-      \"longitude_i\":0, \
-      \"alias\":\"Front Light\", \
-      \"status\":\"new\", \
-      \"description\":\"Smart Wi-Fi LED Bulb with Color Changing\", \
-      \"mic_type\":\"IOT.SMARTBULB\", \
-      \"mic_mac\":\"C0C9E3AD7C1C\", \
-      \"dev_state\":\"normal\", \
-      \"is_factory\":false, \
-      \"disco_ver\":\"1.0\", \
-      \"ctrl_protocols\":  \
-      { \
-        \"name\":\"Linkie\", \
-        \"version\":\"1.0\" \
-      }, \
-      \"active_mode\":\"none\", \
-      \"is_dimmable\":1, \
-      \"is_color\":1, \
-      \"is_variable_color_temp\":1, \
-      \"light_state\": \
-      { \
-        \"on_off\":0, \
-        \"dft_on_state\": \
-        { \
-          \"mode\":\"normal\", \
-          \"hue\":0, \
-          \"saturation\":0, \
-          \"color_temp\":2700, \
-          \"brightness\":75 \
-        } \
-      }, \
-      \"preferred_state\":[ \
-        { \
-          \"index\":0, \
-          \"hue\":0, \
-          \"saturation\":0, \
-          \"color_temp\":2700, \
-          \"brightness\":50 \
-        }, \
-        { \
-          \"index\":1, \
-          \"hue\":0, \
-          \"saturation\":100, \
-          \"color_temp\":0, \
-          \"brightness\":100 \
-        }, \
-        { \
-          \"index\":2, \
-          \"hue\":120, \
-          \"saturation\":100, \
-          \"color_temp\":0, \
-          \"brightness\":100 \
-        }, \
-        { \
-          \"index\":3, \
-          \"hue\":240, \
-          \"saturation\":100, \
-          \"color_temp\":0, \
-          \"brightness\":100 \
-        } \
-      ], \
-      \"err_code\":0 \
-    } \
-  } \
-}";
-
-/* fag to indicate if the WiFi has connected yet */
+/* tag to indicate if the WiFi has connected yet */
 static bool wifi_connected = false;
-
-/* record the last known state of the bulb so we can update a single value at a time if required */
-/* default to white (0 degrees, 0% saturation, 100% brightness) */
-struct hsv_colour current_colour = { .h = 0, .s = 0, .v = 100 };
-
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
@@ -203,181 +120,143 @@ void wifi_setup(bool access_point)
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
-static void process_buffer(const int sock)
-{
-    int buffer_len;
-    char raw_buffer[200];
-    char json_string[200];
-
-    do {
-        buffer_len = recv(sock, raw_buffer, sizeof(raw_buffer) - 1, 0);
-        if (buffer_len < 0) {
-            ESP_LOGE(log_tag, "Error occurred during receiving: errno %d", errno);
-        } else if (buffer_len == 0) {
-            ESP_LOGW(log_tag, "Connection closed");
-        } else {
-            /* decrypt the received buffer to a JSON string */
-            raw_buffer[buffer_len] = 0;
-            tplink_kasa_decrypt(raw_buffer, json_string);
-            ESP_LOGI(log_tag, "Encrypted payload (%d bytes): %s", buffer_len, raw_buffer);
-            ESP_LOGI(log_tag, "Decrypted payload (%d bytes): %s", strlen(json_string), json_string);
-
-            /* decode JSON message */
-            cJSON *json_message = cJSON_Parse(json_string);
-            if ( json_message == NULL ) {
-                ESP_LOGE(log_tag, "Error decoding JSON message");
-            } else {
-                /* get system info request from string */
-                const cJSON * attr_system = cJSON_GetObjectItem(json_message, "system");
-                if ( cJSON_HasObjectItem(attr_system, "get_sysinfo") ) {
-                    ESP_LOGI(log_tag, "get sysinfo request");
-                    //buffer_len = tplink_kasa_encrypt(tplink_kasa_sysinfo, raw_buffer);
-                    buffer_len = tplink_kasa_encrypt("{\"system\":{\"get_sysinfo\":{\"err_code\":0}}}", raw_buffer);
-                }
-
-                /* get colour setting from string */
-                const cJSON * attr_light_service = cJSON_GetObjectItem(json_message, "smartlife.iot.smartbulb.lightingservice");
-                const cJSON * attr_light_state = cJSON_GetObjectItem(attr_light_service, "transition_light_state");
-                const cJSON * attr_hue = cJSON_GetObjectItem(attr_light_state, "hue");
-                const cJSON * attr_saturation = cJSON_GetObjectItem(attr_light_state, "saturation");
-                const cJSON * attr_brightness = cJSON_GetObjectItem(attr_light_state, "brightness");
-                const cJSON * attr_on_off = cJSON_GetObjectItem(attr_light_state, "on_off");
-
-                bool need_to_set_colour = false;
-
-                if (cJSON_IsNumber(attr_hue)) {
-                    ESP_LOGI(log_tag, "hue %.0f degrees", attr_hue->valuedouble);
-                    current_colour.h = attr_hue->valuedouble;
-                    need_to_set_colour = true;
-                }
-                if (cJSON_IsNumber(attr_saturation)) {
-                    ESP_LOGI(log_tag, "saturation %.0f%%", attr_saturation->valuedouble);
-                    current_colour.s = attr_saturation->valuedouble;
-                    need_to_set_colour = true;
-                }
-                if (cJSON_IsNumber(attr_brightness)) {
-                    ESP_LOGI(log_tag, "brightness %.0f%%", attr_brightness->valuedouble);
-                    current_colour.v = attr_brightness->valuedouble;
-                    need_to_set_colour = true;
-                }
-
-                /* send command to bluetooth bulb to turn on/off if required */
-                if (cJSON_IsNumber(attr_on_off)) {
-                    ESP_LOGI(log_tag, "on/off %.0f", attr_on_off->valuedouble);
-                    const bool turn_off = attr_on_off->valuedouble == 0;
-                    if ( turn_off ) {
-                        bluetooth_turn_bulb_off();
-                        need_to_set_colour = false;
-                    } else {
-                        /* this will turn the bulb back on */
-                        need_to_set_colour = true;
-                    }
-                }
-
-                /* send command to bluetooth bulb to set the colour */
-                if (need_to_set_colour) {
-                    bluetooth_set_bulb_colour(colours_hsv_to_rgb(current_colour));
-                }
-
-                /* tidy up */
-                cJSON_Delete(json_message);
-            }
-
-            /* return response okay message */
-            int tx_len = strlen(tplink_kasa_sysinfo);
-            ESP_LOGI(log_tag, "Sending response (%d bytes)", tx_len);
-            int to_write = tx_len;
-            while (to_write > 0)
-            {
-                int written = send(sock, tplink_kasa_sysinfo + (tx_len - to_write), to_write, 0);
-                if (written < 0) {
-                    ESP_LOGE(log_tag, "Error occurred during sending: errno %d", errno);
-                }
-                to_write -= written;
-            }
-        }
-    } while (buffer_len > 0);
-}
-
-static void tcp_server_task(void *pvParameters)
+static void server_task(void *pvParameters)
 {
     char addr_str[128];
-    int addr_family = (int)pvParameters;
-    int ip_protocol = 0;
+    const int socket_type = (int)pvParameters;
+    const bool is_tcp_server = socket_type == SOCK_STREAM;
+    const bool is_udp_server = socket_type == SOCK_DGRAM;
+    struct sockaddr_storage source_addr;
+    socklen_t addr_len = sizeof(source_addr);
+    struct sockaddr_storage dest_addr;
+    struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
+    dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
+    dest_addr_ip4->sin_family = AF_INET;
+    dest_addr_ip4->sin_port = htons(port);
+
+    /* TCP timeout settings */
     int keepAlive = 1;
     int keepIdle = 5;
     int keepInterval = 5;
     int keepCount = 3;
-    struct sockaddr_storage dest_addr;
 
-    if (addr_family == AF_INET) {
-        struct sockaddr_in *dest_addr_ip4 = (struct sockaddr_in *)&dest_addr;
-        dest_addr_ip4->sin_addr.s_addr = htonl(INADDR_ANY);
-        dest_addr_ip4->sin_family = AF_INET;
-        dest_addr_ip4->sin_port = htons(port);
-        ip_protocol = IPPROTO_IP;
-    }
+    /* allocate receive buffer */
+    const int buffer_len = 2000;
+    char * raw_buffer = malloc(buffer_len * sizeof(char));
 
-    int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-    if (listen_sock < 0) {
+    /* create TCP/UDP socket */
+    int my_sock = socket(AF_INET, socket_type, IPPROTO_IP);
+    if (my_sock < 0) {
         ESP_LOGE(log_tag, "Unable to create socket: errno %d", errno);
         vTaskDelete(NULL);
         return;
     }
     int opt = 1;
-    setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
+    setsockopt(my_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
     ESP_LOGI(log_tag, "Socket created");
 
-    int err = bind(listen_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    /* set UDP receive timeout */
+    if (is_udp_server) {
+        struct timeval timeout;
+        timeout.tv_sec = 10;
+        timeout.tv_usec = 0;
+        setsockopt(my_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
+    }
+
+    /* bind to TCP/UDP port */
+    int err = bind(my_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
     if (err != 0) {
         ESP_LOGE(log_tag, "Socket unable to bind: errno %d", errno);
-        ESP_LOGE(log_tag, "IPPROTO: %d", addr_family);
         goto CLEAN_UP;
     }
     ESP_LOGI(log_tag, "Socket bound, port %d", port);
 
-    err = listen(listen_sock, 1);
-    if (err != 0) {
-        ESP_LOGE(log_tag, "Error occurred during listen: errno %d", errno);
+    /* for TCP server, set socket into listening mode */
+    if (is_tcp_server && (listen(my_sock, 1) != 0)) {
+        ESP_LOGE(log_tag, "Error listening on TCP socket: errno %d", errno);
         goto CLEAN_UP;
     }
 
-    while (1) {
+    /* receive loop */
+    while (1)
+    {
+        int rx_len = 0;
+        int connection = 0;
 
-        ESP_LOGI(log_tag, "Socket listening");
-
-        struct sockaddr_storage source_addr; // Large enough for both IPv4 or IPv6
-        socklen_t addr_len = sizeof(source_addr);
-        int sock = accept(listen_sock, (struct sockaddr *)&source_addr, &addr_len);
-        if (sock < 0) {
-            ESP_LOGE(log_tag, "Unable to accept connection: errno %d", errno);
-            break;
+        /* for UDP server, periodically try to read a buffer of data from the socket */
+        if (is_udp_server) {
+            rx_len = recvfrom(my_sock, raw_buffer, buffer_len - 1, 0, (struct sockaddr *)&source_addr, &addr_len);
+            if (rx_len < 0) {
+                continue;
+            }
         }
 
-        // Set tcp keepalive option
-        setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepAlive, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, 5, &keepIdle, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, 5, &keepInterval, sizeof(int));
-        setsockopt(sock, IPPROTO_TCP, 3, &keepCount, sizeof(int));
-        // Convert ip address to string
+        /* for TCP server, wait to accept client connection */
+        if (is_tcp_server) {
+            ESP_LOGI(log_tag, "TCP socket listening");
+            connection = accept(my_sock, (struct sockaddr *)&source_addr, &addr_len);
+            if (connection < 0) {
+                ESP_LOGE(log_tag, "Unable to accept connection: errno %d", errno);
+                continue;
+            }
+            /* client connection has been accepted, kepp it alive */
+            setsockopt(connection, SOL_SOCKET, SO_KEEPALIVE, &keepAlive, sizeof(int));
+            setsockopt(connection, IPPROTO_TCP, 5, &keepIdle, sizeof(int));
+            setsockopt(connection, IPPROTO_TCP, 5, &keepInterval, sizeof(int));
+            setsockopt(connection, IPPROTO_TCP, 3, &keepCount, sizeof(int));
+            /* get a buffer of data */
+            rx_len = recv(connection, raw_buffer, buffer_len - 1, 0);
+            if (rx_len < 0) {
+                ESP_LOGE(log_tag, "Error occurred during receiving: errno %d", errno);
+                continue;
+            } else if (rx_len == 0) {
+                ESP_LOGW(log_tag, "Connection closed");
+                continue;
+            }
+        }
+
+        /* connection has now been made, so get the client IP address */
         if (source_addr.ss_family == PF_INET) {
             inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
         }
-        ESP_LOGI(log_tag, "Socket accepted ip address: %s", addr_str);
+        ESP_LOGI(log_tag, "Connection from IP address: %s", addr_str);
 
-        process_buffer(sock);
+        /* process the buffer and generate a response */
+        int reply_len = tplink_kasa_process_buffer(raw_buffer, rx_len, false);
 
-        shutdown(sock, 0);
-        close(sock);
+        /* send a response back to the client */
+        ESP_LOGI(log_tag, "Replying with %d bytes", reply_len);
+        if (is_udp_server) {
+            int err = sendto(my_sock, raw_buffer, reply_len, 0, (struct sockaddr *)&source_addr, sizeof(source_addr));
+            if (err < 0) {
+                ESP_LOGE(log_tag, "Error occurred during UDP send: errno %d", errno);
+            }
+        }
+        if (is_tcp_server) {
+            int to_write = reply_len;
+            while (to_write > 0) {
+                int written = send(my_sock, raw_buffer + (reply_len - to_write), to_write, 0);
+                if (written < 0) {
+                    ESP_LOGE(log_tag, "Error occurred during TCP send: errno %d", errno);
+                }
+                to_write -= written;
+            }
+            shutdown(connection, 0);
+            close(connection);
+        }
     }
 
 CLEAN_UP:
-    close(listen_sock);
+    free(raw_buffer);
+    close(my_sock);
     vTaskDelete(NULL);
 }
 
 void wifi_start_server(void)
 {
-    xTaskCreate(tcp_server_task, "tcp_server", 4096, (void*)AF_INET, 5, NULL);
+    /* start a UDP server on port 9999 for get_sysinfo commands */
+    xTaskCreate(server_task, "udp_server", 4096, (void*)SOCK_DGRAM, 5, NULL);
+
+    /* start a TCP server on port 9999 for control commands (e.g. colour/on/off) */
+    xTaskCreate(server_task, "tcp_server", 4096, (void*)SOCK_STREAM, 5, NULL);
 }
