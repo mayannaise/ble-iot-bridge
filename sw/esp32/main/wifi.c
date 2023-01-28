@@ -222,7 +222,7 @@ static void server_task(void *pvParameters)
         ESP_LOGI(log_tag, "Connection from IP address: %s", addr_str);
 
         /* process the buffer and generate a response */
-        int reply_len = tplink_kasa_process_buffer(raw_buffer, rx_len, false);
+        int reply_len = tplink_kasa_process_buffer(raw_buffer, rx_len, is_tcp_server);
 
         /* send a response back to the client */
         ESP_LOGI(log_tag, "Replying with %d bytes", reply_len);
@@ -235,9 +235,10 @@ static void server_task(void *pvParameters)
         if (is_tcp_server) {
             int to_write = reply_len;
             while (to_write > 0) {
-                int written = send(my_sock, raw_buffer + (reply_len - to_write), to_write, 0);
+                int written = send(connection, raw_buffer + (reply_len - to_write), to_write, 0);
                 if (written < 0) {
                     ESP_LOGE(log_tag, "Error occurred during TCP send: errno %d", errno);
+                    break;
                 }
                 to_write -= written;
             }
