@@ -23,7 +23,29 @@ union payload_header
 
 const char cipher_key = 171;
 
-static const char * tplink_kasa_sysinfo = "{ \
+static const char * tplink_kasa_cloudinfo = \
+"{ \
+  \"smartlife.iot.common.cloud\": \
+  { \
+    \"get_info\": \
+    { \
+      \"username\":\"osjeffreys.uk@gmail.com\", \
+      \"server\":\"n-devs.tplinkcloud.com\", \
+      \"binded\":1, \
+      \"cld_connection\":1, \
+      \"illegalType\":0, \
+      \"stopConnect\":0, \
+      \"tcspStatus\":1, \
+      \"fwDlPage\":\"\", \
+      \"tcspInfo\":\"\", \
+      \"fwNotifyType\":-1, \
+      \"err_code\":0 \
+    } \
+  } \
+}";
+
+static const char * tplink_kasa_sysinfo = \
+"{ \
   \"system\": \
   { \
     \"get_sysinfo\": \
@@ -54,7 +76,10 @@ static const char * tplink_kasa_sysinfo = "{ \
       \"is_dimmable\":1, \
       \"is_color\":1, \
       \"is_variable_color_temp\":1, \
-      \"light_state\":{\"on_off\":0}, \
+      \"light_state\": \
+      { \
+        \"on_off\":0 \
+      }, \
       \"preferred_state\":[ \
         { \
           \"index\":0, \
@@ -162,7 +187,16 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
             encrypted_len = tplink_kasa_encrypt("{}", raw_buffer, include_header);
         }
 
-        /* get system info request from string */
+        /* check for cloud service request */
+        const cJSON * attr_cloudinfo = cJSON_GetObjectItem(rx_json_message, "smartlife.iot.common.cloud");
+        if ( cJSON_HasObjectItem(attr_cloudinfo, "get_info") ) {
+            cJSON * response_template = cJSON_Parse(tplink_kasa_cloudinfo);
+            ESP_LOGI(log_tag, "%s", cJSON_PrintUnformatted(response_template));
+            encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
+            cJSON_Delete(response_template);
+        }
+
+        /* check for system info request */
         const cJSON * attr_system = cJSON_GetObjectItem(rx_json_message, "system");
         if ( cJSON_HasObjectItem(attr_system, "get_sysinfo") ) {
             ESP_LOGI(log_tag, "System information requested");
