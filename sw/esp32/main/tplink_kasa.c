@@ -100,7 +100,7 @@ static bool current_on_state = false;
 int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bool include_header)
 {
     int encrypted_len = 0;
-    char json_string[200];
+    char * json_string = malloc(buffer_len * sizeof(char));
 
     /* decrypt the received buffer to a JSON string */
     raw_buffer[buffer_len] = 0;
@@ -110,6 +110,7 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
 
     /* decode JSON message */
     cJSON * rx_json_message = cJSON_Parse(json_string);
+    free(json_string);
     if ( rx_json_message == NULL ) {
         ESP_LOGE(log_tag, "Error decoding JSON message");
     } else {
