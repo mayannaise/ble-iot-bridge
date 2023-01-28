@@ -23,6 +23,7 @@ struct hsv_colour
     float h;
     float s;
     float v;
+    float t;
 };
 
 /**

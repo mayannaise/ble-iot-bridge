@@ -54,18 +54,7 @@ static const char * tplink_kasa_sysinfo = "{ \
       \"is_dimmable\":1, \
       \"is_color\":1, \
       \"is_variable_color_temp\":1, \
-      \"light_state\": \
-      { \
-        \"on_off\":0, \
-        \"dft_on_state\": \
-        { \
-          \"mode\":\"normal\", \
-          \"hue\":0, \
-          \"saturation\":0, \
-          \"color_temp\":2700, \
-          \"brightness\":75 \
-        } \
-      }, \
+      \"light_state\":{\"on_off\":0}, \
       \"preferred_state\":[ \
         { \
           \"index\":0, \
@@ -102,8 +91,11 @@ static const char * tplink_kasa_sysinfo = "{ \
 }";
 
 /* record the last known state of the bulb so we can update a single value at a time if required */
-/* default to white (0 degrees, 0% saturation, 100% brightness) */
-struct hsv_colour current_colour = { .h = 0, .s = 0, .v = 100 };
+/* default to white (0 degrees, 0% saturation, 100% brightness, temperature 4000K) */
+static struct hsv_colour current_colour = { .h = 0, .s = 0, .v = 100, .t = 4000 };
+
+/* record the last on/off state of the bulb */
+static bool current_on_state = true;
 
 int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bool include_header)
 {
@@ -117,19 +109,12 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
     ESP_LOGI(log_tag, "Decrypted payload (%d bytes): %s", decrypted_len, json_string);
 
     /* decode JSON message */
-    cJSON *json_message = cJSON_Parse(json_string);
-    if ( json_message == NULL ) {
+    cJSON * rx_json_message = cJSON_Parse(json_string);
+    if ( rx_json_message == NULL ) {
         ESP_LOGE(log_tag, "Error decoding JSON message");
     } else {
-        /* get system info request from string */
-        const cJSON * attr_system = cJSON_GetObjectItem(json_message, "system");
-        if ( cJSON_HasObjectItem(attr_system, "get_sysinfo") ) {
-            ESP_LOGI(log_tag, "System information requested");
-            encrypted_len = tplink_kasa_encrypt(tplink_kasa_sysinfo, raw_buffer, include_header);
-        }
-
         /* get colour setting from string */
-        const cJSON * attr_light_service = cJSON_GetObjectItem(json_message,       "smartlife.iot.smartbulb.lightingservice");
+        const cJSON * attr_light_service = cJSON_GetObjectItem(rx_json_message,    "smartlife.iot.smartbulb.lightingservice");
         const cJSON * attr_light_state   = cJSON_GetObjectItem(attr_light_service, "transition_light_state");
         const cJSON * attr_hue           = cJSON_GetObjectItem(attr_light_state,   "hue");
         const cJSON * attr_saturation    = cJSON_GetObjectItem(attr_light_state,   "saturation");
@@ -160,6 +145,8 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
             const bool turn_off = attr_on_off->valuedouble == 0;
             if ( turn_off ) {
                 bluetooth_turn_bulb_off();
+                current_on_state = false;
+                encrypted_len = tplink_kasa_encrypt("{}", raw_buffer, include_header);
                 need_to_set_colour = false;
             } else {
                 /* this will turn the bulb back on */
@@ -170,10 +157,46 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
         /* send command to bluetooth bulb to set the colour */
         if (need_to_set_colour) {
             bluetooth_set_bulb_colour(colours_hsv_to_rgb(current_colour));
+            current_on_state = true;
+            encrypted_len = tplink_kasa_encrypt("{}", raw_buffer, include_header);
         }
 
+        /* get system info request from string */
+        const cJSON * attr_system = cJSON_GetObjectItem(rx_json_message, "system");
+        if ( cJSON_HasObjectItem(attr_system, "get_sysinfo") ) {
+            ESP_LOGI(log_tag, "System information requested");
+            /* generate the JSON response from the template */
+            cJSON * response_template = cJSON_Parse(tplink_kasa_sysinfo);
+            if ( response_template == NULL ) {
+                ESP_LOGE(log_tag, "Error generating system info JSON");
+            } else {
+                cJSON * resp_system = cJSON_GetObjectItem(response_template, "system");
+                cJSON * resp_sysinfo = cJSON_GetObjectItem(resp_system, "get_sysinfo");
+                cJSON * resp_light_state = cJSON_GetObjectItem(resp_sysinfo, "light_state");
+                cJSON * resp_on_off = cJSON_GetObjectItem(resp_light_state, "on_off");
+                cJSON_SetNumberValue(resp_on_off, (int)current_on_state);
+                if (current_on_state) {
+                    cJSON_AddItemToObject(resp_light_state, "mode", cJSON_CreateString("normal"));
+                    cJSON_AddItemToObject(resp_light_state, "hue", cJSON_CreateNumber(current_colour.h));
+                    cJSON_AddItemToObject(resp_light_state, "saturation", cJSON_CreateNumber(current_colour.s));
+                    cJSON_AddItemToObject(resp_light_state, "color_temp", cJSON_CreateNumber(current_colour.t));
+                    cJSON_AddItemToObject(resp_light_state, "brightness", cJSON_CreateNumber(current_colour.v));
+                } else {
+                    cJSON_AddItemToObject(resp_light_state, "dft_on_state", cJSON_CreateObject());
+                    cJSON * resp_dft_state = cJSON_GetObjectItem(resp_light_state, "dft_on_state");
+                    cJSON_AddItemToObject(resp_dft_state, "mode", cJSON_CreateString("normal"));
+                    cJSON_AddItemToObject(resp_dft_state, "hue", cJSON_CreateNumber(current_colour.h));
+                    cJSON_AddItemToObject(resp_dft_state, "saturation", cJSON_CreateNumber(current_colour.s));
+                    cJSON_AddItemToObject(resp_dft_state, "color_temp", cJSON_CreateNumber(current_colour.t));
+                    cJSON_AddItemToObject(resp_dft_state, "brightness", cJSON_CreateNumber(current_colour.v));
+                }
+                ESP_LOGI(log_tag, "%s", cJSON_PrintUnformatted(response_template));
+                encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
+                cJSON_Delete(response_template);
+            }
+        }
         /* tidy up */
-        cJSON_Delete(json_message);
+        cJSON_Delete(rx_json_message);
     }
 
     return encrypted_len;
@@ -238,10 +261,10 @@ int tplink_kasa_encrypt(const char * payload, char * encrypted_payload, const bo
     const int header_len = include_header ? sizeof(header) : 0;
     
     /* XOR each byte with the previous encypted byte or 171 for the first byte */
-    for (int i = 0; i < header.payload_length; i++)
+    for (int i = 0; i < strlen(payload); i++)
     {
         key = encrypted_payload[i + header_len] = payload[i] ^ key;
     }
 
-    return header.payload_length + header_len;
+    return strlen(payload) + header_len;
 }

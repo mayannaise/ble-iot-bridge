@@ -207,10 +207,10 @@ static void server_task(void *pvParameters)
             /* get a buffer of data */
             rx_len = recv(connection, raw_buffer, buffer_len - 1, 0);
             if (rx_len < 0) {
-                ESP_LOGE(log_tag, "Error occurred during receiving: errno %d", errno);
+                ESP_LOGE(log_tag, "Error occurred during TCP receive: errno %d", errno);
                 continue;
             } else if (rx_len == 0) {
-                ESP_LOGW(log_tag, "Connection closed");
+                ESP_LOGI(log_tag, "Connection closed");
                 continue;
             }
         }
