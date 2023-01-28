@@ -95,7 +95,7 @@ static const char * tplink_kasa_sysinfo = "{ \
 static struct hsv_colour current_colour = { .h = 0, .s = 0, .v = 100, .t = 4000 };
 
 /* record the last on/off state of the bulb */
-static bool current_on_state = true;
+static bool current_on_state = false;
 
 int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bool include_header)
 {
