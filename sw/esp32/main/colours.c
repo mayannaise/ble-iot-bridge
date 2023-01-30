@@ -45,29 +45,29 @@ struct hsv_colour colours_rgb_to_hsv(struct rgb_colour rgb)
 struct rgb_colour colours_hsv_to_rgb(struct hsv_colour hsv)
 {
     struct rgb_colour rgb = {};
-    double P, Q, T, fract;
+    
+    double C = (hsv.v / 100) * (hsv.s / 100);
+    double X = C * (1 - abs(fmod((hsv.h / 60), 2) - 1));
+    double m = (hsv.v / 100) - C;
 
-    (hsv.h == 360.0) ? (hsv.h = 0.0) : (hsv.h /= 60.0);
-    fract = hsv.h - floor(hsv.h);
-
-    P = hsv.v * (1.0 - hsv.s);
-    Q = hsv.v * (1.0 - hsv.s * fract);
-    T = hsv.v * (1.0 - hsv.s * (1.0 - fract));
-
-    if (0.0 <= hsv.h && hsv.h < 1.0)
-        rgb = (struct rgb_colour){.r = hsv.v, .g = T, .b = P};
-    else if (1.0 <= hsv.h && hsv.h < 2.0)
-        rgb = (struct rgb_colour){.r = Q, .g = hsv.v, .b = P};
-    else if (2.0 <= hsv.h && hsv.h < 3.0)
-        rgb = (struct rgb_colour){.r = P, .g = hsv.v, .b = T};
-    else if (3.0 <= hsv.h && hsv.h < 4.0)
-        rgb = (struct rgb_colour){.r = P, .g = Q, .b = hsv.v};
-    else if (4.0 <= hsv.h && hsv.h < 5.0)
-        rgb = (struct rgb_colour){.r = T, .g = P, .b = hsv.v};
-    else if (5.0 <= hsv.h && hsv.h < 6.0)
-        rgb = (struct rgb_colour){.r = hsv.v, .g = P, .b = Q};
+    if (0 <= hsv.h && hsv.h < 60)
+        rgb = (struct rgb_colour){.r = C, .g = X, .b = 0};
+    else if (60 <= hsv.h && hsv.h < 120)
+        rgb = (struct rgb_colour){.r = X, .g = C, .b = 0};
+    else if (120 <= hsv.h && hsv.h < 180)
+        rgb = (struct rgb_colour){.r = 0, .g = C, .b = X};
+    else if (180 <= hsv.h && hsv.h < 240)
+        rgb = (struct rgb_colour){.r = 0, .g = X, .b = C};
+    else if (240 <= hsv.h && hsv.h < 300)
+        rgb = (struct rgb_colour){.r = X, .g = 0, .b = C};
+    else if (300 <= hsv.h && hsv.h < 360)
+        rgb = (struct rgb_colour){.r = C, .g = 0, .b = X};
     else
         rgb = (struct rgb_colour){.r = 0.0, .g = 0.0, .b = 0.0};
+
+    rgb.r = (rgb.r + m) * 255;
+    rgb.g = (rgb.g + m) * 255;
+    rgb.b = (rgb.b + m) * 255;
 
     return rgb;
 }
