@@ -11,8 +11,16 @@
 #include <unistd.h>
 
 /* local includes */
+#include "colours.h"
 #include "wifi.h"
 
+
+struct light_state
+{
+    struct hsv_colour colour;
+    bool on_off;
+    int temperature;
+};
 
 /**
  * @brief Process a received buffer of encrypted data
