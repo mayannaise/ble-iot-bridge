@@ -114,7 +114,7 @@ static const char * tplink_kasa_sysinfo = \
     } \
 }";
 
-static void tplink_kasa_generate_light_state(cJSON * parent_node)
+static void tplink_kasa_generate_light_state(cJSON * parent_node, const bool include_on_off)
 {
     /* read the actual colour state from the bluetooth bulb so we report the real value */
     bluetooth_request_bulb_state();
@@ -124,7 +124,7 @@ static void tplink_kasa_generate_light_state(cJSON * parent_node)
     cJSON_AddItemToObject(parent_node, "saturation", cJSON_CreateNumber((int)current_state.colour.s));
     cJSON_AddItemToObject(parent_node, "brightness", cJSON_CreateNumber((int)current_state.colour.v));
     cJSON_AddItemToObject(parent_node, "color_temp", cJSON_CreateNumber((int)current_state.temperature));
-    cJSON_AddItemToObject(parent_node, "on_off", cJSON_CreateNumber((int)current_state.on_off));
+    if (include_on_off) cJSON_AddItemToObject(parent_node, "on_off", cJSON_CreateNumber((int)current_state.on_off));
     cJSON_AddItemToObject(parent_node, "err_code", cJSON_CreateNumber(0));
 }
 
@@ -180,7 +180,7 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
                 cJSON_AddItemToObject(resp, "smartlife.iot.smartbulb.lightingservice", cJSON_CreateObject());
                 cJSON * light_service = cJSON_GetObjectItem(resp, "smartlife.iot.smartbulb.lightingservice");
                 cJSON_AddItemToObject(light_service, "transition_light_state", cJSON_CreateObject());
-                tplink_kasa_generate_light_state(cJSON_GetObjectItem(light_service, "transition_light_state"));
+                tplink_kasa_generate_light_state(cJSON_GetObjectItem(light_service, "transition_light_state"), true);
                 encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(resp), raw_buffer, include_header);
                 cJSON_Delete(resp);
                 need_to_set_colour = false;
@@ -201,7 +201,7 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
             cJSON_AddItemToObject(resp, "smartlife.iot.smartbulb.lightingservice", cJSON_CreateObject());
             cJSON * light_service = cJSON_GetObjectItem(resp, "smartlife.iot.smartbulb.lightingservice");
             cJSON_AddItemToObject(light_service, "transition_light_state", cJSON_CreateObject());
-            tplink_kasa_generate_light_state(cJSON_GetObjectItem(light_service, "transition_light_state"));
+            tplink_kasa_generate_light_state(cJSON_GetObjectItem(light_service, "transition_light_state"), true);
             encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(resp), raw_buffer, include_header);
             cJSON_Delete(resp);
         }
@@ -228,11 +228,11 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
                 cJSON * resp_light_state = cJSON_GetObjectItem(resp_sysinfo, "light_state");
                 cJSON * resp_on_off = cJSON_GetObjectItem(resp_light_state, "on_off");
                 if (current_state.on_off) {
-                    tplink_kasa_generate_light_state(resp_light_state);
+                    tplink_kasa_generate_light_state(resp_light_state, false);
                 } else {
                     cJSON_AddItemToObject(resp_light_state, "dft_on_state", cJSON_CreateObject());
                     cJSON * resp_dft_state = cJSON_GetObjectItem(resp_light_state, "dft_on_state");
-                    tplink_kasa_generate_light_state(resp_dft_state);
+                    tplink_kasa_generate_light_state(resp_dft_state, false);
                 }
                 cJSON_SetNumberValue(resp_on_off, (int)current_state.on_off);
                 encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
