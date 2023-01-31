@@ -116,9 +116,6 @@ static const char * tplink_kasa_sysinfo = \
 
 static void tplink_kasa_generate_light_state(cJSON * parent_node, const bool include_on_off)
 {
-    /* read the actual colour state from the bluetooth bulb so we report the real value */
-    bluetooth_request_bulb_state();
-
     cJSON_AddItemToObject(parent_node, "mode", cJSON_CreateString("normal"));
     cJSON_AddItemToObject(parent_node, "hue", cJSON_CreateNumber((int)current_state.colour.h));
     cJSON_AddItemToObject(parent_node, "saturation", cJSON_CreateNumber((int)current_state.colour.s));

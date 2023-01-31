@@ -186,6 +186,9 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
             gl_profile_tab[PROFILE_A_APP_ID].char_handle = char_elem_result->char_handle;
             ESP_LOGI(log_tag, "Found characteristic in service");
 
+            /* now read the current state of the bulb so we can report what it is really doing */
+            bluetooth_request_bulb_state();
+
             /* free char_elem_result */
             free(char_elem_result);
         } else {
@@ -213,10 +216,8 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
             const struct rgb_colour rgb = { .r = param->read.value[1], .g = param->read.value[2], .b = param->read.value[3] };
             const struct hsv_colour hsv = colours_rgb_to_hsv(rgb);
             current_state.on_off = hsv.v > 0;
-            /* only save the colour of the bulb is on, otherwise we overwrite the last on state colour */
+            /* only save the colour of the bulb if it is on, otherwise we overwrite the last on state colour */
             if ( current_state.on_off ) {
-                ESP_LOGI(log_tag, "last known RGB %d,%d,%d", rgb.r, rgb.g, rgb.b);
-                ESP_LOGI(log_tag, "last known HSV %.0f,%.0f,%.0f", hsv.h, hsv.s, hsv.v);
                 current_state.colour = hsv;
             }
             current_state.up_to_date = true;
@@ -455,6 +456,4 @@ void bluetooth_start(void)
     if (local_mtu_ret){
         ESP_LOGE(log_tag, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
-
-    bluetooth_request_bulb_state();
 }
