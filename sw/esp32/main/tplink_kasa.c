@@ -24,107 +24,101 @@ const char cipher_key = 171;
 
 static const char * tplink_kasa_cloudinfo = \
 "{ \
-  \"smartlife.iot.common.cloud\": \
-  { \
-    \"get_info\": \
+    \"smartlife.iot.common.cloud\": \
     { \
-      \"username\":\"osjeffreys.uk@gmail.com\", \
-      \"server\":\"n-devs.tplinkcloud.com\", \
-      \"binded\":1, \
-      \"cld_connection\":1, \
-      \"illegalType\":0, \
-      \"stopConnect\":0, \
-      \"tcspStatus\":1, \
-      \"fwDlPage\":\"\", \
-      \"tcspInfo\":\"\", \
-      \"fwNotifyType\":-1, \
-      \"err_code\":0 \
+        \"get_info\": \
+        { \
+        \"username\":\"osjeffreys.uk@gmail.com\", \
+        \"server\":\"n-devs.tplinkcloud.com\", \
+        \"binded\":1, \
+        \"cld_connection\":1, \
+        \"illegalType\":0, \
+        \"stopConnect\":0, \
+        \"tcspStatus\":1, \
+        \"fwDlPage\":\"\", \
+        \"tcspInfo\":\"\", \
+        \"fwNotifyType\":-1, \
+        \"err_code\":0 \
+        } \
     } \
-  } \
 }";
 
 static const char * tplink_kasa_sysinfo = \
 "{ \
-  \"system\": \
-  { \
-    \"get_sysinfo\": \
+    \"system\": \
     { \
-      \"sw_ver\":\"1.0.0 Build 000001 Rel.000001\", \
-      \"hw_ver\":\"1.0\", \
-      \"model\":\"KL130B(UN)\", \
-      \"deviceId\":\"80121C1874CF2DEA94DF3127F8DDF7D71DD7112F\", \
-      \"oemId\":\"E45F76AD3AF13E60B58D6F68739CD7E5\", \
-      \"hwId\":\"1E97141B9F0E939BD8F9679F0B6167C9\", \
-      \"rssi\":-71, \
-      \"latitude_i\":0, \
-      \"longitude_i\":0, \
-      \"alias\":\"Back Light\", \
-      \"status\":\"new\", \
-      \"description\":\"WiFi BLE Smart Bulb Bridge\", \
-      \"mic_type\":\"IOT.SMARTBULB\", \
-      \"mic_mac\":\"C0C9E3AD7C1D\", \
-      \"dev_state\":\"normal\", \
-      \"is_factory\":false, \
-      \"disco_ver\":\"1.0\", \
-      \"ctrl_protocols\":  \
-      { \
-        \"name\":\"Linkie\", \
-        \"version\":\"1.0\" \
-      }, \
-      \"active_mode\":\"none\", \
-      \"is_dimmable\":1, \
-      \"is_color\":1, \
-      \"is_variable_color_temp\":1, \
-      \"light_state\": \
-      { \
-        \"on_off\":0 \
-      }, \
-      \"preferred_state\":[ \
+        \"get_sysinfo\": \
         { \
-          \"index\":0, \
-          \"hue\":0, \
-          \"saturation\":0, \
-          \"color_temp\":2700, \
-          \"brightness\":50 \
+        \"sw_ver\":\"1.0.0 Build 000001 Rel.000001\", \
+        \"hw_ver\":\"1.0\", \
+        \"model\":\"KL130B(UN)\", \
+        \"deviceId\":\"80121C1874CF2DEA94DF3127F8DDF7D71DD7112F\", \
+        \"oemId\":\"E45F76AD3AF13E60B58D6F68739CD7E5\", \
+        \"hwId\":\"1E97141B9F0E939BD8F9679F0B6167C9\", \
+        \"rssi\":-71, \
+        \"latitude_i\":0, \
+        \"longitude_i\":0, \
+        \"alias\":\"Back Light\", \
+        \"status\":\"new\", \
+        \"description\":\"WiFi BLE Smart Bulb Bridge\", \
+        \"mic_type\":\"IOT.SMARTBULB\", \
+        \"mic_mac\":\"C0C9E3AD7C1D\", \
+        \"dev_state\":\"normal\", \
+        \"is_factory\":false, \
+        \"disco_ver\":\"1.0\", \
+        \"ctrl_protocols\":  \
+        { \
+            \"name\":\"Linkie\", \
+            \"version\":\"1.0\" \
         }, \
+        \"active_mode\":\"none\", \
+        \"is_dimmable\":1, \
+        \"is_color\":1, \
+        \"is_variable_color_temp\":1, \
+        \"light_state\": \
         { \
-          \"index\":1, \
-          \"hue\":0, \
-          \"saturation\":100, \
-          \"color_temp\":0, \
-          \"brightness\":100 \
+            \"on_off\":0 \
         }, \
-        { \
-          \"index\":2, \
-          \"hue\":120, \
-          \"saturation\":100, \
-          \"color_temp\":0, \
-          \"brightness\":100 \
-        }, \
-        { \
-          \"index\":3, \
-          \"hue\":240, \
-          \"saturation\":100, \
-          \"color_temp\":0, \
-          \"brightness\":100 \
+        \"preferred_state\":[ \
+            { \
+            \"index\":0, \
+            \"hue\":0, \
+            \"saturation\":0, \
+            \"color_temp\":2700, \
+            \"brightness\":50 \
+            }, \
+            { \
+            \"index\":1, \
+            \"hue\":0, \
+            \"saturation\":100, \
+            \"color_temp\":0, \
+            \"brightness\":100 \
+            }, \
+            { \
+            \"index\":2, \
+            \"hue\":120, \
+            \"saturation\":100, \
+            \"color_temp\":0, \
+            \"brightness\":100 \
+            }, \
+            { \
+            \"index\":3, \
+            \"hue\":240, \
+            \"saturation\":100, \
+            \"color_temp\":0, \
+            \"brightness\":100 \
+            } \
+        ], \
+        \"err_code\":0 \
         } \
-      ], \
-      \"err_code\":0 \
     } \
-  } \
 }";
 
-/* record the last known state of the bulb so we can update a single value at a time if required */
-/* default to white (0 degrees, 0% saturation, 100% brightness, temperature 4000K) */
-static struct light_state current_state =
+static void tplink_kasa_generate_light_state(cJSON * parent_node)
 {
-    .colour = { .h = 0, .s = 0, .v = 100 },
-    .on_off = false,
-    .temperature = 4000,
-};
+    /* read the actual colour state from the bluetooth bulb so we report the real value */
+    bluetooth_request_bulb_state();
 
-void tplink_kasa_generate_light_state(cJSON * parent_node)
-{
     cJSON_AddItemToObject(parent_node, "mode", cJSON_CreateString("normal"));
     cJSON_AddItemToObject(parent_node, "hue", cJSON_CreateNumber(current_state.colour.h));
     cJSON_AddItemToObject(parent_node, "saturation", cJSON_CreateNumber(current_state.colour.s));
@@ -230,7 +224,6 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
                 cJSON * resp_sysinfo = cJSON_GetObjectItem(resp_system, "get_sysinfo");
                 cJSON * resp_light_state = cJSON_GetObjectItem(resp_sysinfo, "light_state");
                 cJSON * resp_on_off = cJSON_GetObjectItem(resp_light_state, "on_off");
-                cJSON_SetNumberValue(resp_on_off, (int)current_state.on_off);
                 if (current_state.on_off) {
                     tplink_kasa_generate_light_state(resp_light_state);
                 } else {
@@ -238,6 +231,7 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
                     cJSON * resp_dft_state = cJSON_GetObjectItem(resp_light_state, "dft_on_state");
                     tplink_kasa_generate_light_state(resp_dft_state);
                 }
+                cJSON_SetNumberValue(resp_on_off, (int)current_state.on_off);
                 encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
                 cJSON_Delete(response_template);
             }

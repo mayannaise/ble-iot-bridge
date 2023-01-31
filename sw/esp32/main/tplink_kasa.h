@@ -15,13 +15,6 @@
 #include "wifi.h"
 
 
-struct light_state
-{
-    struct hsv_colour colour;
-    bool on_off;
-    int temperature;
-};
-
 /**
  * @brief Process a received buffer of encrypted data
  * @param raw_buffer Buffer to decrypt, interpret and respond to

@@ -19,16 +19,34 @@
 #include "esp_bt_main.h"
 #include "esp_gatt_common_api.h"
 #include "esp_log.h"
+#include <freertos/task.h>
 #include "freertos/FreeRTOS.h"
 
 #include "colours.h"
 
+/**
+ * @brief structure to remember the last state of the bulb
+ */
+struct light_state
+{
+    struct hsv_colour colour;
+    bool on_off;
+    int temperature;
+    bool up_to_date;
+};
+
+extern struct light_state current_state;
 
 /**
  * @brief Set the colour of the BLE smart bulb
  * @param rgb New colour
  */
 extern bool bluetooth_set_bulb_colour(const struct rgb_colour rgb);
+
+/**
+ * @brief Request a reading of the colour of the BLE smart bulb
+ */
+extern void bluetooth_request_bulb_state();
 
 /**
  * @brief Turn off BLE smart bulb

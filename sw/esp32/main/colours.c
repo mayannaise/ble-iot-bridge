@@ -23,7 +23,7 @@ struct hsv_colour colours_rgb_to_hsv(struct rgb_colour rgb)
     if (hsv.v == 0) {
         hsv.s = 0;
     } else {
-        hsv.s = rgb_delta / rgb_max;
+        hsv.s = (rgb_delta / rgb_max) * 100;
     }
 
     /* calculate HSV "hue" component (0-360 degrees) */

@@ -32,6 +32,15 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param);
 static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param);
 
+/* record the last known state of the bulb so we can update a single value at a time if required */
+/* default to white (0 degrees, 0% saturation, 100% brightness, temperature 4000K) */
+struct light_state current_state =
+{
+    .colour = { .h = 0, .s = 0, .v = 100 },
+    .on_off = false,
+    .temperature = 4000,
+    .up_to_date = false,
+};
 
 static esp_bt_uuid_t smartbulb_ble_service_uuid = {
     .len = ESP_UUID_LEN_16,
@@ -192,6 +201,27 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         }
         ESP_LOGI(log_tag, "write char success ");
         break;
+    case ESP_GATTC_READ_CHAR_EVT:
+        if (param->read.status != ESP_GATT_OK) {
+            ESP_LOGW(log_tag, "Error reading char at handle %d, status=%d", param->read.handle, param->read.status);
+            break;
+        }
+        ESP_LOGI(log_tag, "ESP_GATTS_READ_EVT char_value:");
+        ESP_LOG_BUFFER_HEX_LEVEL(log_tag, param->read.value, param->read.value_len, ESP_LOG_INFO);
+        if ((param->read.value[0] == 0xD0) && (param->read.value_len == 4))
+        {
+            const struct rgb_colour rgb = { .r = param->read.value[1], .g = param->read.value[2], .b = param->read.value[3] };
+            const struct hsv_colour hsv = colours_rgb_to_hsv(rgb);
+            current_state.on_off = hsv.v > 0;
+            /* only save the colour of the bulb is on, otherwise we overwrite the last on state colour */
+            if ( current_state.on_off ) {
+                ESP_LOGI(log_tag, "last known RGB %d,%d,%d", rgb.r, rgb.g, rgb.b);
+                ESP_LOGI(log_tag, "last known HSV %.0f,%.0f,%.0f", hsv.h, hsv.s, hsv.v);
+                current_state.colour = hsv;
+            }
+            current_state.up_to_date = true;
+        }
+        break;
     case ESP_GATTC_DISCONNECT_EVT:
         connect = false;
         get_server = false;
@@ -218,7 +248,6 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             break;
         }
         ESP_LOGI(log_tag, "scan start success");
-
         break;
     case ESP_GAP_BLE_SCAN_RESULT_EVT: {
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
@@ -325,6 +354,22 @@ bool bluetooth_set_bulb_colour(const struct rgb_colour rgb)
     return true;
 }
 
+void bluetooth_request_bulb_state()
+{
+    current_state.up_to_date = false;
+
+    if ( gl_profile_tab[PROFILE_A_APP_ID].char_handle == 0 ) {
+        return;
+    }
+
+    /* read RGB value from characteristic */
+    esp_ble_gattc_read_char(
+        gl_profile_tab[PROFILE_A_APP_ID].gattc_if,
+        gl_profile_tab[PROFILE_A_APP_ID].conn_id,
+        gl_profile_tab[PROFILE_A_APP_ID].char_handle,
+        ESP_GATT_AUTH_REQ_NONE);
+}
+
 bool bluetooth_turn_bulb_off()
 {
     if ( gl_profile_tab[PROFILE_A_APP_ID].char_handle == 0 ) {
@@ -410,4 +455,6 @@ void bluetooth_start(void)
     if (local_mtu_ret){
         ESP_LOGE(log_tag, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
+
+    bluetooth_request_bulb_state();
 }
