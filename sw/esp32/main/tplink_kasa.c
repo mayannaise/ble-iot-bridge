@@ -120,10 +120,10 @@ static void tplink_kasa_generate_light_state(cJSON * parent_node)
     bluetooth_request_bulb_state();
 
     cJSON_AddItemToObject(parent_node, "mode", cJSON_CreateString("normal"));
-    cJSON_AddItemToObject(parent_node, "hue", cJSON_CreateNumber(current_state.colour.h));
-    cJSON_AddItemToObject(parent_node, "saturation", cJSON_CreateNumber(current_state.colour.s));
-    cJSON_AddItemToObject(parent_node, "brightness", cJSON_CreateNumber(current_state.colour.v));
-    cJSON_AddItemToObject(parent_node, "color_temp", cJSON_CreateNumber(current_state.temperature));
+    cJSON_AddItemToObject(parent_node, "hue", cJSON_CreateNumber((int)current_state.colour.h));
+    cJSON_AddItemToObject(parent_node, "saturation", cJSON_CreateNumber((int)current_state.colour.s));
+    cJSON_AddItemToObject(parent_node, "brightness", cJSON_CreateNumber((int)current_state.colour.v));
+    cJSON_AddItemToObject(parent_node, "color_temp", cJSON_CreateNumber((int)current_state.temperature));
     cJSON_AddItemToObject(parent_node, "on_off", cJSON_CreateNumber((int)current_state.on_off));
     cJSON_AddItemToObject(parent_node, "err_code", cJSON_CreateNumber(0));
 }
@@ -192,6 +192,9 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
 
         /* send command to bluetooth bulb to set the colour */
         if (need_to_set_colour) {
+            const struct rgb_colour rgb = colours_hsv_to_rgb(current_state.colour);
+            ESP_LOGI("log_tag", "set bulb HSV %.0f,%.0f,%.0f", current_state.colour.h, current_state.colour.s, current_state.colour.v);
+            ESP_LOGI("log_tag", "set bulb RGB %d,%d,%d", rgb.r, rgb.g, rgb.b);
             bluetooth_set_bulb_colour(colours_hsv_to_rgb(current_state.colour));
             current_state.on_off = true;
             cJSON * resp = cJSON_CreateObject();
