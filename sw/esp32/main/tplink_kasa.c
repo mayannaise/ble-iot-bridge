@@ -22,23 +22,25 @@ union payload_header
 
 const char cipher_key = 171;
 
+static const char * tplink_kasa_bind = "{\"smartlife.iot.common.cloud\":{\"bind\":{\"err_code\":0}}}";
+
 static const char * tplink_kasa_cloudinfo = \
 "{ \
     \"smartlife.iot.common.cloud\": \
     { \
         \"get_info\": \
         { \
-        \"username\":\"osjeffreys.uk@gmail.com\", \
-        \"server\":\"n-devs.tplinkcloud.com\", \
-        \"binded\":1, \
-        \"cld_connection\":1, \
-        \"illegalType\":0, \
-        \"stopConnect\":0, \
-        \"tcspStatus\":1, \
-        \"fwDlPage\":\"\", \
-        \"tcspInfo\":\"\", \
-        \"fwNotifyType\":-1, \
-        \"err_code\":0 \
+            \"username\":\"osjeffreys.uk@gmail.com\", \
+            \"server\":\"n-devs.tplinkcloud.com\", \
+            \"binded\":1, \
+            \"cld_connection\":1, \
+            \"illegalType\":0, \
+            \"stopConnect\":0, \
+            \"tcspStatus\":1, \
+            \"fwDlPage\":\"\", \
+            \"tcspInfo\":\"\", \
+            \"fwNotifyType\":-1, \
+            \"err_code\":0 \
         } \
     } \
 }";
@@ -54,7 +56,7 @@ static const char * tplink_kasa_sysinfo = \
         \"model\":\"KL130B(UN)\", \
         \"deviceId\":\"80121C1874CF2DEA94DF3127F8DDF7D71DD7112F\", \
         \"oemId\":\"E45F76AD3AF13E60B58D6F68739CD7E5\", \
-        \"hwId\":\"1E97141B9F0E939BD8F9679F0B6167C9\", \
+        \"hwId\":\"1E97141B9F0E939BD8F9679F0B6167C8\", \
         \"rssi\":-71, \
         \"latitude_i\":0, \
         \"longitude_i\":0, \
@@ -140,8 +142,11 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
     if ( rx_json_message == NULL ) {
         ESP_LOGE(log_tag, "Error decoding JSON message");
     } else {
+        /* get modules */
+        const cJSON * attr_cloudinfo = cJSON_GetObjectItem(rx_json_message, "smartlife.iot.common.cloud");
+        const cJSON * attr_light_service = cJSON_GetObjectItem(rx_json_message, "smartlife.iot.smartbulb.lightingservice");
+
         /* get colour setting from string */
-        const cJSON * attr_light_service = cJSON_GetObjectItem(rx_json_message,    "smartlife.iot.smartbulb.lightingservice");
         const cJSON * attr_light_state   = cJSON_GetObjectItem(attr_light_service, "transition_light_state");
         const cJSON * attr_hue           = cJSON_GetObjectItem(attr_light_state,   "hue");
         const cJSON * attr_saturation    = cJSON_GetObjectItem(attr_light_state,   "saturation");
@@ -203,10 +208,16 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
             cJSON_Delete(resp);
         }
 
-        /* check for cloud service request */
-        const cJSON * attr_cloudinfo = cJSON_GetObjectItem(rx_json_message, "smartlife.iot.common.cloud");
+        /* check for cloud info request */
         if ( cJSON_HasObjectItem(attr_cloudinfo, "get_info") ) {
             cJSON * response_template = cJSON_Parse(tplink_kasa_cloudinfo);
+            encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
+            cJSON_Delete(response_template);
+        }
+
+        /* check for cloud bind request */
+        if ( cJSON_HasObjectItem(attr_cloudinfo, "bind") ) {
+            cJSON * response_template = cJSON_Parse(tplink_kasa_bind);
             encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
             cJSON_Delete(response_template);
         }
