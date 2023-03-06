@@ -19,7 +19,6 @@
 
 /* local includes */
 #include "bluetooth.h"
-#include "cjson/cJSON.h"
 #include "tplink_kasa.h"
 #include "wifi.h"
 
@@ -31,18 +30,33 @@ static const uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1D};
 /* tag to indicate if the WiFi has connected yet */
 static bool wifi_connected = false;
 
+/* flag to indicate that server threads are running */
+static bool server_running = false;
+
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
+    ESP_LOGI(log_tag, "event ID %d", event_id);
+
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        // wifi driver has started successfully, so attempt to connect to the configured wifi access point
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        esp_wifi_connect();
+        // ESP has disconnected from the wifi access point
+        // the documentation suggests that in this event, the following is to be done:
+        // 1) call esp_wifi_connect() to reconnect the Wi-Fi
+        // 2) close all sockets
+        // 3) re-create them if necessary
+        ESP_LOGE(log_tag, "WiFi disconnected, reconnecting...");
         wifi_connected = false;
+        server_running = false;
+        esp_wifi_connect();
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        // ESP has successfully connected to the configured wifi access point
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         wifi_connected = true;
         ESP_LOGI(log_tag, "ESP acquired IP address:" IPSTR, IP2STR(&event->ip_info.ip));
     } else if (event_id == WIFI_EVENT_AP_STACONNECTED) {
+        // a wifi device has connected to the access point of the ESP
         wifi_connected = true;
         wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
         ESP_LOGI(log_tag, "station "MACSTR" join, AID=%d", MAC2STR(event->mac), event->aid);
@@ -163,6 +177,11 @@ static void server_task(void *pvParameters)
         setsockopt(my_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
     }
 
+    /* configure TCP socket as non-blocking */
+    if (is_tcp_server) {
+        fcntl(my_sock, F_SETFL, fcntl(my_sock, F_GETFL) | O_NONBLOCK);
+    }
+
     /* bind to TCP/UDP port */
     int err = bind(my_sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
     if (err != 0) {
@@ -178,7 +197,8 @@ static void server_task(void *pvParameters)
     }
 
     /* receive loop */
-    while (1)
+    server_running = true;
+    while (server_running)
     {
         int rx_len = 0;
         int connection = 0;
@@ -193,10 +213,11 @@ static void server_task(void *pvParameters)
 
         /* for TCP server, wait to accept client connection */
         if (is_tcp_server) {
-            ESP_LOGI(log_tag, "TCP socket listening");
+            //ESP_LOGI(log_tag, "TCP socket listening");
             connection = accept(my_sock, (struct sockaddr *)&source_addr, &addr_len);
             if (connection < 0) {
-                ESP_LOGE(log_tag, "Unable to accept connection: errno %d", errno);
+                //ESP_LOGE(log_tag, "Unable to accept connection: errno %d", errno);
+                vTaskDelay(500 / portTICK_RATE_MS);
                 continue;
             }
             /* client connection has been accepted, kepp it alive */
@@ -251,13 +272,16 @@ CLEAN_UP:
     free(raw_buffer);
     close(my_sock);
     vTaskDelete(NULL);
+
+    // restart the server
+    ESP_LOGI(log_tag, "Restarting servers");
+    wifi_start_server();
 }
 
 void wifi_start_server(void)
 {
     /* start a UDP server on port 9999 for get_sysinfo commands */
     xTaskCreate(server_task, "udp_server", 4096, (void*)SOCK_DGRAM, 5, NULL);
-
     /* start a TCP server on port 9999 for control commands (e.g. colour/on/off) */
     xTaskCreate(server_task, "tcp_server", 4096, (void*)SOCK_STREAM, 5, NULL);
 }
