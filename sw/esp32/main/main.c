@@ -25,9 +25,6 @@
  */
 void app_main(void)
 {
-    /* application constants */
-    const char *log_tag = "ble-iot-bridge";
-
     /* in pairing mode, the ESP32 is configured as an access point */
     /* otherwise connect the ESP32 to an access point */
     bool bulb_needs_pairing = false;
@@ -38,8 +35,6 @@ void app_main(void)
     {
         vTaskDelay(500 / portTICK_RATE_MS);
     }
-    ESP_LOGI(log_tag, "Starting WiFi smartbulb emulator");
-    wifi_start_server();
 
     /* start bluetooth and connect to BLE smartbulb */
     bluetooth_start();

@@ -33,6 +33,11 @@ static bool wifi_connected = false;
 /* flag to indicate that server threads are running */
 static bool server_running = false;
 
+/* handles to server threads */
+TaskHandle_t handle_tcp_server = NULL;
+TaskHandle_t handle_udp_server = NULL;
+
+
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     ESP_LOGI(log_tag, "event ID %d", event_id);
@@ -54,10 +59,12 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         // ESP has successfully connected to the configured wifi access point
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         wifi_connected = true;
+        wifi_start_server();
         ESP_LOGI(log_tag, "ESP acquired IP address:" IPSTR, IP2STR(&event->ip_info.ip));
     } else if (event_id == WIFI_EVENT_AP_STACONNECTED) {
         // a wifi device has connected to the access point of the ESP
         wifi_connected = true;
+        wifi_start_server();
         wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
         ESP_LOGI(log_tag, "station "MACSTR" join, AID=%d", MAC2STR(event->mac), event->aid);
     }
@@ -213,10 +220,8 @@ static void server_task(void *pvParameters)
 
         /* for TCP server, wait to accept client connection */
         if (is_tcp_server) {
-            //ESP_LOGI(log_tag, "TCP socket listening");
             connection = accept(my_sock, (struct sockaddr *)&source_addr, &addr_len);
             if (connection < 0) {
-                //ESP_LOGE(log_tag, "Unable to accept connection: errno %d", errno);
                 vTaskDelay(500 / portTICK_RATE_MS);
                 continue;
             }
@@ -272,16 +277,12 @@ CLEAN_UP:
     free(raw_buffer);
     close(my_sock);
     vTaskDelete(NULL);
-
-    // restart the server
-    ESP_LOGI(log_tag, "Restarting servers");
-    wifi_start_server();
 }
 
 void wifi_start_server(void)
 {
-    /* start a UDP server on port 9999 for get_sysinfo commands */
-    xTaskCreate(server_task, "udp_server", 4096, (void*)SOCK_DGRAM, 5, NULL);
     /* start a TCP server on port 9999 for control commands (e.g. colour/on/off) */
-    xTaskCreate(server_task, "tcp_server", 4096, (void*)SOCK_STREAM, 5, NULL);
+    xTaskCreate(server_task, "tcp_server", 4096, (void*)SOCK_STREAM, 5, &handle_tcp_server);
+    /* start a UDP server on port 9999 for get_sysinfo commands */
+    xTaskCreate(server_task, "udp_server", 4096, (void*)SOCK_DGRAM, 5, &handle_udp_server);
 }
