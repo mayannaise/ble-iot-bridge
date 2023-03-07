@@ -19,14 +19,4 @@
  */
 extern void wifi_setup(bool access_point);
 
-/**
- * @brief Check if ESP32 has connected to the WiFi and acquired an IP address
- */
-extern bool wifi_network_ready(void);
-
-/**
- * @brief Start TCP server on port 9999
- */
-extern void wifi_start_server(void);
-
 #endif

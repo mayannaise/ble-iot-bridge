@@ -27,9 +27,6 @@ static const char *log_tag = "wifi";
 static const uint32_t port = 9999;
 static const uint8_t mac_address[] = {0xC0, 0xC9, 0xE3, 0xAD, 0x7C, 0x1D};
 
-/* tag to indicate if the WiFi has connected yet */
-static bool wifi_connected = false;
-
 /* flag to indicate that server threads are running */
 static bool server_running = false;
 
@@ -37,6 +34,10 @@ static bool server_running = false;
 TaskHandle_t handle_tcp_server = NULL;
 TaskHandle_t handle_udp_server = NULL;
 
+/**
+ * @brief Start TCP/UDP servers on port 9999
+ */
+void start_servers(void);
 
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
@@ -52,19 +53,17 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         // 2) close all sockets
         // 3) re-create them if necessary
         ESP_LOGE(log_tag, "WiFi disconnected, reconnecting...");
-        wifi_connected = false;
         server_running = false;
+        vTaskDelay(1000 / portTICK_RATE_MS);
         esp_wifi_connect();
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         // ESP has successfully connected to the configured wifi access point
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        wifi_connected = true;
-        wifi_start_server();
+        start_servers();
         ESP_LOGI(log_tag, "ESP acquired IP address:" IPSTR, IP2STR(&event->ip_info.ip));
     } else if (event_id == WIFI_EVENT_AP_STACONNECTED) {
         // a wifi device has connected to the access point of the ESP
-        wifi_connected = true;
-        wifi_start_server();
+        start_servers();
         wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
         ESP_LOGI(log_tag, "station "MACSTR" join, AID=%d", MAC2STR(event->mac), event->aid);
     }
@@ -79,11 +78,6 @@ static esp_err_t configure_nvs_flash(void)
     }
     
     return ret;
-}
-
-bool wifi_network_ready(void)
-{
-    return wifi_connected;
 }
 
 void wifi_setup(bool access_point)
@@ -169,7 +163,6 @@ static void server_task(void *pvParameters)
     int my_sock = socket(AF_INET, socket_type, IPPROTO_IP);
     if (my_sock < 0) {
         ESP_LOGE(log_tag, "Unable to create socket: errno %d", errno);
-        vTaskDelete(NULL);
         return;
     }
     int opt = 1;
@@ -245,7 +238,7 @@ static void server_task(void *pvParameters)
         if (source_addr.ss_family == PF_INET) {
             inet_ntoa_r(((struct sockaddr_in *)&source_addr)->sin_addr, addr_str, sizeof(addr_str) - 1);
         }
-        ESP_LOGI(log_tag, "Connection from IP address: %s", addr_str);
+        ESP_LOGI(log_tag, "Connection from %s:%d/%s", addr_str, port, is_tcp_server ? "TCP" : "UDP");
 
         /* process the buffer and generate a response */
         int reply_len = tplink_kasa_process_buffer(raw_buffer, rx_len, is_tcp_server);
@@ -276,11 +269,13 @@ static void server_task(void *pvParameters)
 CLEAN_UP:
     free(raw_buffer);
     close(my_sock);
+    if (is_tcp_server) ESP_LOGI(log_tag, "TCP server ended");
+    if (is_udp_server) ESP_LOGI(log_tag, "UDP server ended");
     vTaskDelete(NULL);
 }
 
-void wifi_start_server(void)
-{
+void start_servers(void)
+{   
     /* start a TCP server on port 9999 for control commands (e.g. colour/on/off) */
     xTaskCreate(server_task, "tcp_server", 4096, (void*)SOCK_STREAM, 5, &handle_tcp_server);
     /* start a UDP server on port 9999 for get_sysinfo commands */

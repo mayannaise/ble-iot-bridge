@@ -30,12 +30,6 @@ void app_main(void)
     bool bulb_needs_pairing = false;
     wifi_setup(bulb_needs_pairing);
 
-    /* wait till network is ready and then start the TCP server */
-    while ( !wifi_network_ready() )
-    {
-        vTaskDelay(500 / portTICK_RATE_MS);
-    }
-
     /* start bluetooth and connect to BLE smartbulb */
     bluetooth_start();
 }
