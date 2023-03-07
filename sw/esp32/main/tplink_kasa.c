@@ -195,8 +195,8 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
         /* send command to bluetooth bulb to set the colour */
         if (need_to_set_colour) {
             const struct rgb_colour rgb = colours_hsv_to_rgb(current_state.colour);
-            ESP_LOGI("log_tag", "set bulb HSV %.0f,%.0f,%.0f", current_state.colour.h, current_state.colour.s, current_state.colour.v);
-            ESP_LOGI("log_tag", "set bulb RGB %d,%d,%d", rgb.r, rgb.g, rgb.b);
+            ESP_LOGI(log_tag, "set bulb HSV %.0f,%.0f,%.0f", current_state.colour.h, current_state.colour.s, current_state.colour.v);
+            ESP_LOGI(log_tag, "set bulb RGB %d,%d,%d", rgb.r, rgb.g, rgb.b);
             bluetooth_set_bulb_colour(colours_hsv_to_rgb(current_state.colour));
             current_state.on_off = true;
             cJSON * resp = cJSON_CreateObject();
@@ -293,8 +293,8 @@ int tplink_kasa_decrypt(const char * encrypted_payload, const int encrypted_len,
     /* stick a null on the end to terminate the string */
     decrypted_payload[header.payload_length] = '\0';
 
-    //ESP_LOGI(log_tag, "Encrypted payload (%d bytes): %s", encrypted_len, encrypted_payload);
-    ESP_LOGI(log_tag, "Decrypted payload (%d bytes): %s", header.payload_length, decrypted_payload);
+    ESP_LOGD(log_tag, "Encrypted payload (%d bytes): %s", encrypted_len, encrypted_payload);
+    ESP_LOGD(log_tag, "Decrypted payload (%d bytes): %s", header.payload_length, decrypted_payload);
 
     return header.payload_length;
 }
@@ -324,8 +324,8 @@ int tplink_kasa_encrypt(const char * payload, char * encrypted_payload, const bo
 
     const int encrypted_len = strlen(payload) + header_len;
 
-    ESP_LOGI(log_tag, "Decrypted payload (%d bytes): %s", header.payload_length, payload);
-    //ESP_LOGI(log_tag, "Encrypted payload (%d bytes): %s", encrypted_len, encrypted_payload);
+    ESP_LOGD(log_tag, "Decrypted payload (%d bytes): %s", header.payload_length, payload);
+    ESP_LOGD(log_tag, "Encrypted payload (%d bytes): %s", encrypted_len, encrypted_payload);
 
     return encrypted_len;
 }
