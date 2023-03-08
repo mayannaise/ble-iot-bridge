@@ -24,8 +24,10 @@ const char * log_tag = "bluetoothle";
 unsigned char mac_address[6];
 
 static bool connect    = false;
-static bool get_server = false;
 static esp_gattc_char_elem_t *char_elem_result = NULL;
+
+/* Bluetooth device scan duration (in seconds) */
+const uint32_t scan_duration = 30;
 
 /* Declare static functions */
 static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
@@ -130,7 +132,6 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         ESP_LOGI(log_tag, "start handle %d end handle %d current handle value %d", p_data->search_res.start_handle, p_data->search_res.end_handle, p_data->search_res.srvc_id.inst_id);
         if (p_data->search_res.srvc_id.uuid.len == ESP_UUID_LEN_16 && p_data->search_res.srvc_id.uuid.uuid.uuid16 == SERVICE_UUID) {
             ESP_LOGI(log_tag, "service found");
-            get_server = true;
             gl_profile_tab[PROFILE_A_APP_ID].service_start_handle = p_data->search_res.start_handle;
             gl_profile_tab[PROFILE_A_APP_ID].service_end_handle = p_data->search_res.end_handle;
             ESP_LOGI(log_tag, "UUID16: %x", p_data->search_res.srvc_id.uuid.uuid.uuid16);
@@ -225,8 +226,8 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         break;
     case ESP_GATTC_DISCONNECT_EVT:
         connect = false;
-        get_server = false;
-        ESP_LOGI(log_tag, "ESP_GATTC_DISCONNECT_EVT, reason = %d", p_data->disconnect.reason);
+        ESP_LOGE(log_tag, "ESP_GATTC_DISCONNECT_EVT, reason = %d", p_data->disconnect.reason);
+        esp_ble_gap_start_scanning(scan_duration);
         break;
     default:
         break;
@@ -237,9 +238,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 {
     switch (event) {
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: {
-        //the unit of the duration is second
-        uint32_t duration = 30;
-        esp_ble_gap_start_scanning(duration);
+        esp_ble_gap_start_scanning(scan_duration);
         break;
     }
     case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:

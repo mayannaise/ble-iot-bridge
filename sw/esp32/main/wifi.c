@@ -42,6 +42,7 @@ void start_servers(void);
 static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
     ESP_LOGI(log_tag, "event ID %d", event_id);
+    ESP_LOGD(log_tag, "HEAP free %d", esp_get_free_internal_heap_size());
 
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         // wifi driver has started successfully, so attempt to connect to the configured wifi access point
@@ -172,7 +173,7 @@ static void server_task(void *pvParameters)
     /* set UDP receive timeout */
     if (is_udp_server) {
         struct timeval timeout;
-        timeout.tv_sec = 10;
+        timeout.tv_sec = 5;
         timeout.tv_usec = 0;
         setsockopt(my_sock, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof timeout);
     }
@@ -207,6 +208,7 @@ static void server_task(void *pvParameters)
         if (is_udp_server) {
             rx_len = recvfrom(my_sock, raw_buffer, buffer_len - 1, 0, (struct sockaddr *)&source_addr, &addr_len);
             if (rx_len < 0) {
+                vTaskDelay(500 / portTICK_RATE_MS);
                 continue;
             }
         }

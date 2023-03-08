@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 /* local includes */
+#include "cjson/cJSON.h"
 #include "colours.h"
 #include "wifi.h"
 
@@ -36,11 +37,11 @@ int tplink_kasa_decrypt(const char * encrypted_payload, const int encrypted_len,
 
 /**
  * @brief Encrypt using XOR Autokey Cipher with starting key of 171
- * @param payload Input payload to encrypt
+ * @param payload Input payload to encrypt as cJSON object
  * @param encrypted_payload Output encrypted payload
  * @param include_header True to prepend the packet with a header
  * @return length of encrypted data
  */
-int tplink_kasa_encrypt(const char * payload, char * encypted_payload, const bool include_header);
+int tplink_kasa_encrypt(const cJSON * payload, char * encypted_payload, const bool include_header);
 
 #endif

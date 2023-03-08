@@ -139,6 +139,7 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
     /* decode JSON message */
     cJSON * rx_json_message = cJSON_Parse(json_string);
     free(json_string);
+
     if ( rx_json_message == NULL ) {
         ESP_LOGE(log_tag, "Error decoding JSON message");
     } else {
@@ -183,7 +184,7 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
                 cJSON * light_service = cJSON_GetObjectItem(resp, "smartlife.iot.smartbulb.lightingservice");
                 cJSON_AddItemToObject(light_service, "transition_light_state", cJSON_CreateObject());
                 tplink_kasa_generate_light_state(cJSON_GetObjectItem(light_service, "transition_light_state"), true);
-                encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(resp), raw_buffer, include_header);
+                encrypted_len = tplink_kasa_encrypt(resp, raw_buffer, include_header);
                 cJSON_Delete(resp);
                 need_to_set_colour = false;
             } else {
@@ -204,21 +205,21 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
             cJSON * light_service = cJSON_GetObjectItem(resp, "smartlife.iot.smartbulb.lightingservice");
             cJSON_AddItemToObject(light_service, "transition_light_state", cJSON_CreateObject());
             tplink_kasa_generate_light_state(cJSON_GetObjectItem(light_service, "transition_light_state"), true);
-            encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(resp), raw_buffer, include_header);
+            encrypted_len = tplink_kasa_encrypt(resp, raw_buffer, include_header);
             cJSON_Delete(resp);
         }
 
         /* check for cloud info request */
         if ( cJSON_HasObjectItem(attr_cloudinfo, "get_info") ) {
             cJSON * response_template = cJSON_Parse(tplink_kasa_cloudinfo);
-            encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
+            encrypted_len = tplink_kasa_encrypt(response_template, raw_buffer, include_header);
             cJSON_Delete(response_template);
         }
 
         /* check for cloud bind request */
         if ( cJSON_HasObjectItem(attr_cloudinfo, "bind") ) {
             cJSON * response_template = cJSON_Parse(tplink_kasa_bind);
-            encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
+            encrypted_len = tplink_kasa_encrypt(response_template, raw_buffer, include_header);
             cJSON_Delete(response_template);
         }
 
@@ -243,7 +244,7 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
                     tplink_kasa_generate_light_state(resp_dft_state, false);
                 }
                 cJSON_SetNumberValue(resp_on_off, (int)current_state.on_off);
-                encrypted_len = tplink_kasa_encrypt(cJSON_PrintUnformatted(response_template), raw_buffer, include_header);
+                encrypted_len = tplink_kasa_encrypt(response_template, raw_buffer, include_header);
                 cJSON_Delete(response_template);
             }
         }
@@ -299,10 +300,13 @@ int tplink_kasa_decrypt(const char * encrypted_payload, const int encrypted_len,
     return header.payload_length;
 }
 
-int tplink_kasa_encrypt(const char * payload, char * encrypted_payload, const bool include_header)
+int tplink_kasa_encrypt(const cJSON * json, char * encrypted_payload, const bool include_header)
 {
     /* autokey cypher key value */
     char key = cipher_key;
+
+    /* convert JSON object to string and allocate on the HEAP (must free memory when finished) */
+    char * payload = cJSON_PrintUnformatted(json);
 
     /* the first 4 bytes in the encrypted data define the length of the payload, encoded in big endian */
     /* since ESP32 is little endian, need to swap the endianness */
@@ -326,6 +330,8 @@ int tplink_kasa_encrypt(const char * payload, char * encrypted_payload, const bo
 
     ESP_LOGD(log_tag, "Decrypted payload (%d bytes): %s", header.payload_length, payload);
     ESP_LOGD(log_tag, "Encrypted payload (%d bytes): %s", encrypted_len, encrypted_payload);
+
+    free(payload);
 
     return encrypted_len;
 }
