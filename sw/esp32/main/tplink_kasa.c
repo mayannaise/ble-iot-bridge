@@ -227,6 +227,7 @@ int tplink_kasa_process_buffer(char * raw_buffer, const int buffer_len, const bo
         const cJSON * attr_system = cJSON_GetObjectItem(rx_json_message, "system");
         if ( cJSON_HasObjectItem(attr_system, "get_sysinfo") ) {
             ESP_LOGI(log_tag, "System information requested");
+            bluetooth_request_bulb_state();
             /* generate the JSON response from the template */
             cJSON * response_template = cJSON_Parse(tplink_kasa_sysinfo);
             if ( response_template == NULL ) {

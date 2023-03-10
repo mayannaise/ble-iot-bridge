@@ -100,10 +100,21 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
         memcpy(gl_profile_tab[PROFILE_A_APP_ID].remote_bda, p_data->connect.remote_bda, sizeof(esp_bd_addr_t));
         ESP_LOGI(log_tag, "REMOTE BDA:");
         esp_log_buffer_hex(log_tag, gl_profile_tab[PROFILE_A_APP_ID].remote_bda, sizeof(esp_bd_addr_t));
+        
         esp_err_t mtu_ret = esp_ble_gattc_send_mtu_req (gattc_if, p_data->connect.conn_id);
         if (mtu_ret){
             ESP_LOGE(log_tag, "config MTU error, error code = %x", mtu_ret);
         }
+
+        /* update BLE connection parameters */
+        esp_ble_conn_update_params_t conn_params = {0};
+        memcpy(conn_params.bda, p_data->connect.remote_bda, sizeof(esp_bd_addr_t));
+        conn_params.latency = 0;
+        conn_params.max_int = 0x20;    // max_int = 0x20*1.25ms = 40ms
+        conn_params.min_int = 0x10;    // min_int = 0x10*1.25ms = 20ms
+        conn_params.timeout = 600;     // timeout = 600*10ms    = 6000ms
+        esp_ble_gap_update_conn_params(&conn_params);
+
         break;
     }
     case ESP_GATTC_OPEN_EVT:
