@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 /* local includes */
-#include "cjson/cJSON.h"
+#include "cJSON.h"
 #include "colours.h"
 #include "wifi.h"
 

@@ -8,7 +8,6 @@
 
 /* local includes */
 #include "bluetooth.h"
-#include "cjson/cJSON.h"
 #include "tplink_kasa.h"
 #include "wifi.h"
 
